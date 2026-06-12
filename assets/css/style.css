@@ -1,0 +1,363 @@
+:root {
+    --ferrari-red: #ff2828;
+    --panel-bg: rgba(20, 20, 20, 0.55);
+    --blur-effect: blur(15px);
+    --border-style: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #000;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #fff;
+}
+
+/* Arrière-plan vidéo sombre */
+#bg-video {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+    opacity: 0.35;
+}
+
+/* NAVBAR */
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 70px;
+    padding: 0 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.brand-logo {
+    height: 35px;
+    width: auto;
+}
+
+.brand-name {
+    font-size: 1.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.nav-right {
+    display: flex;
+    gap: 25px;
+}
+
+.nav-right a {
+    color: #fff;
+    font-size: 1.25rem;
+    text-decoration: none;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.nav-right a:hover {
+    background: var(--ferrari-red);
+    transform: scale(1.1);
+}
+
+/* CONTENEUR GLOBAL */
+.showroom-container {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    z-index: 1;
+}
+
+#webgl-canvas-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    transition: opacity 0.4s ease-in-out;
+}
+
+/* STYLES DES PANNEAUX (Anciens rectangles gris) */
+.ui-panel {
+    position: absolute;
+    z-index: 5;
+    background: var(--panel-bg);
+    -webkit-backdrop-filter: var(--blur-effect);
+    backdrop-filter: var(--blur-effect);
+    border: var(--border-style);
+    border-radius: 12px;
+    padding: 24px;
+}
+
+.top-left-panel {
+    top: 100px;
+    left: 50px;
+    background: none;
+    border: none;
+    backdrop-filter: none;
+    padding: 0;
+}
+
+.top-left-panel h1 {
+    font-size: 3.5rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #fff;
+    line-height: 1;
+}
+
+.top-left-panel h2 {
+    font-size: 1.3rem;
+    font-weight: 400;
+    opacity: 0.7;
+    margin: 8px 0 15px 0;
+}
+
+.bottom-left-panel {
+    bottom: 50px;
+    left: 50px;
+    width: 420px;
+}
+
+.specs-box p {
+    font-size: 1.05rem;
+    margin-bottom: 8px;
+    opacity: 0.9;
+}
+
+.specs-box p:last-child {
+    margin-bottom: 0;
+}
+
+.specs-box strong {
+    color: var(--ferrari-red);
+}
+
+.bottom-right-panel {
+    bottom: 50px;
+    right: 50px;
+    width: 420px;
+}
+
+.panel-title {
+    font-size: 1.25rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    color: var(--ferrari-red);
+}
+
+#car-desc {
+    font-size: 1rem;
+    opacity: 0.8;
+    line-height: 1.5;
+    margin-bottom: 15px;
+}
+
+/* BOUTONS AUX COINS ARRONDIS */
+.rounded-btn {
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.primary-btn {
+    background: var(--ferrari-red);
+    border-color: var(--ferrari-red);
+    padding: 12px 25px;
+    width: 100%;
+}
+
+.primary-btn:hover {
+    background: #d61f1f;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 40, 40, 0.3);
+}
+
+/* NAVIGATION PAR FLÈCHES */
+.nav-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: var(--border-style);
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: var(--blur-effect);
+    color: #fff;
+    font-size: 1.5rem;
+    cursor: pointer;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.nav-arrow:hover {
+    background: var(--ferrari-red);
+    border-color: var(--ferrari-red);
+    scale: 1.08;
+}
+
+.nav-arrow.prev {
+    left: 40px;
+}
+
+.nav-arrow.next {
+    right: 40px;
+}
+
+/* PUCES DE NAVIGATION (BAS) */
+.dots-navigation {
+    position: absolute;
+    bottom: 65px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 15px;
+    z-index: 5;
+}
+
+.dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.dot.active {
+    background: #fff;
+    transform: scale(1.2);
+}
+
+/* VOLET COULISSANT DROIT (FICHE TECHNIQUE) */
+.side-panel {
+    position: fixed;
+    top: 0;
+    right: -460px;
+    /* Caché par défaut à droite */
+    width: 450px;
+    height: 100%;
+    background: rgba(15, 15, 15, 0.85);
+    -webkit-backdrop-filter: blur(25px);
+    backdrop-filter: blur(25px);
+    border-left: var(--border-style);
+    z-index: 100;
+    padding: 40px 30px;
+    display: flex;
+    flex-direction: column;
+    transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.side-panel.open {
+    right: 0;
+}
+
+.side-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 15px;
+}
+
+.side-panel-header h2 {
+    font-size: 1.6rem;
+    text-transform: uppercase;
+    color: var(--ferrari-red);
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 2.2rem;
+    cursor: pointer;
+}
+
+.close-btn:hover {
+    color: var(--ferrari-red);
+}
+
+.side-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    justify-content: center;
+}
+
+.tech-sheet-img {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+.sound-btn {
+    width: 100%;
+    margin-bottom: 12px;
+    /* Espace avec le bouton du dessous */
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px 20px;
+}
+
+.sound-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: #fff;
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+}
+
+/* Optionnel : petite animation quand le son joue */
+.sound-btn.playing {
+    background: #fff;
+    color: #000;
+    border-color: #fff;
+}

@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // =========================================================================
-// 1. BASE DE DONNÉES ET CONFIGURATION DES MODÈLES
+// 1. BASE DE DONNÉES ET CONFIGURATION DES MODÈLES (ENRICHIE MAQUETTE)
 // =========================================================================
 const carData = [
     {
@@ -13,7 +13,26 @@ const carData = [
         badge: "Édition Limitée",
         specs: "<p><strong>Moteur :</strong> V12 Atmosphérique | 6.5L</p><p><strong>Puissance :</strong> 850 ch à 9 200 tr/min</p><p><strong>0-100 km/h :</strong> 2.85 secondes</p>",
         desc: "Inspirée des mythiques barquettes de compétition des années 1960. Son profil aérodynamique virtuel unique canalise le flux d'air pour s'affranchir de pare-brise.",
-        sound: "assets/src/sounds/ferrariEngine.wav" // Ton fichier audio
+        sound: "assets/src/sounds/ferrariEngine.wav",
+        techDetails: {
+            moteur: "V12 Atmosphérique 6.5L",
+            vitesse: "> 340 km/h",
+            puissance: "850 ch",
+            couple: "692 Nm",
+            chrono: "2.85 s",
+            poids: "1 480 kg",
+            boite: "DCT 7 rapports",
+            transmission: "Propulsion"
+        },
+        reviews: {
+            score: "4.9",
+            count: "142",
+            distribution: [92, 6, 2, 0, 0],
+            list: [
+                { name: "Mathieu D.", date: "12 mai 2026", bought: true, rating: 5, text: "Une expérience de conduite inégalée. La Monza SP3 Evo est une œuvre d'art, tant par son design que par ses performances." },
+                { name: "Julien L.", date: "3 avril 2026", bought: false, rating: 5, text: "Puissance, élégance et exclusivité. Ferrari repousse encore les limites avec ce modèle exceptionnel." }
+            ]
+        }
     },
     {
         model: "assets/models/599obj.glb",
@@ -22,7 +41,25 @@ const carData = [
         badge: "Concept Car",
         specs: "<p><strong>Motorisation :</strong> 4 Moteurs Électriques</p><p><strong>Puissance :</strong> 1 200 ch combinés</p><p><strong>Couple maximal :</strong> Vectorisation active</p>",
         desc: "Une vitrine technologique de la Scuderia dotée d'un empattement long. Conçue exclusivement pour briser les lois de la physique sur circuit.",
-        sound: "assets/src/sounds/ferrariEngine.wav" // Ton fichier audio
+        sound: "assets/src/sounds/ferrariEngine.wav",
+        techDetails: {
+            moteur: "4 Moteurs Électriques",
+            vitesse: "> 350 km/h",
+            puissance: "1 200 ch",
+            couple: "1 400 Nm",
+            chrono: "1.95 s",
+            poids: "1 650 kg",
+            boite: "Direct Drive",
+            transmission: "Intégrale (4WD)"
+        },
+        reviews: {
+            score: "4.7",
+            count: "58",
+            distribution: [80, 12, 5, 3, 0],
+            list: [
+                { name: "Guillaume T.", date: "28 mai 2026", bought: true, rating: 5, text: "L'accélération instantanée est absolument terrifiante. Le futur de Ferrari est entre de bonnes mains." }
+            ]
+        }
     },
     {
         model: "assets/models/ferrari.glb",
@@ -31,7 +68,26 @@ const carData = [
         badge: "Série Spéciale",
         specs: "<p><strong>Moteur :</strong> V8 Bi-turbo Hybride</p><p><strong>Puissance :</strong> 830 ch + 163 ch élec</p><p><strong>Châssis :</strong> Monocoque Carbone</p>",
         desc: "Alliant un toit amovible en fibre de carbone à la puissance brute du système hybride synchrone directement dérivé du savoir-faire F1.",
-        sound: "assets/src/sounds/ferrariEngine.wav" // Ton fichier audio
+        sound: "assets/src/sounds/ferrariEngine.wav",
+        techDetails: {
+            moteur: "V8 Bi-turbo Hybride",
+            vitesse: "> 340 km/h",
+            puissance: "993 ch (Cumulée)",
+            couple: "900 Nm",
+            chrono: "2.9 s",
+            poids: "1 485 kg",
+            boite: "DCT 8 rapports",
+            transmission: "Propulsion"
+        },
+        reviews: {
+            score: "4.8",
+            count: "128",
+            distribution: [89, 8, 2, 1, 0],
+            list: [
+                { name: "Alexis R.", date: "14 avril 2026", bought: true, rating: 5, text: "Le compromis idéal entre la brutalité du thermique et l'instantanéité de l'électrique. Sublime en blanc." },
+                { name: "Thomas V.", date: "22 mars 2026", bought: true, rating: 4, text: "Une symphonie mécanique à ciel ouvert. Seul bémol, les espaces de rangement inexistants, mais on ne l'achète pas pour ça !" }
+            ]
+        }
     }
 ];
 
@@ -141,6 +197,9 @@ async function changeVehicle(newIndex) {
     document.getElementById('car-specs').innerHTML = data.specs;
     document.getElementById('car-desc').innerText = data.desc;
     
+    // NOUVEAU : Injection dynamique des données spécifiques de la maquette dans le panneau
+    updateSidePanelContent(data);
+
     // Actualisation de l'état des puces de navigation
     document.querySelectorAll('.dot').forEach((dot, idx) => {
         dot.classList.toggle('active', idx === currentIndex);
@@ -183,14 +242,28 @@ document.querySelectorAll('.dot').forEach(dot => {
 });
 
 // =========================================================================
-// 5. CONTRÔLE DU PANNEAU LATÉRAL COULISSANT
+// 5. CONTRÔLE DU PANNEAU LATÉRAL COULISSANT & NAVIGATION ONGLETS
 // =========================================================================
 const sidePanel = document.getElementById('side-panel');
 const openPanelBtn = document.getElementById('open-panel-btn');
 const closePanelBtn = document.getElementById('close-panel-btn');
 
+// Gestion du basculement des onglets (Fiche Technique / Avis)
+const tabBtns = document.querySelectorAll('.tab-btn');
+const tabContents = document.querySelectorAll('.tab-pane');
+
+tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        const targetTab = document.getElementById(btn.dataset.tab);
+        if (targetTab) targetTab.classList.add('active');
+    });
+});
+
+// Ouverture et Fermeture du volet
 openPanelBtn.addEventListener('click', () => {
-    document.getElementById('panel-car-title').innerText = carData[currentIndex].title;
     sidePanel.classList.add('open');
 });
 
@@ -202,6 +275,68 @@ window.addEventListener('click', (e) => {
         sidePanel.classList.remove('open');
     }
 });
+
+// Fonction d'injection des données dynamiques du véhicule actif (Spécifications + Avis)
+function updateSidePanelContent(data) {
+    // 1. Mise à jour de l'onglet Fiche Technique
+    const specsGrid = document.getElementById('panel-specs-grid');
+    if (specsGrid) {
+        specsGrid.innerHTML = `
+            <div class="spec-item"><i class="fa-solid fa-gauge-high"></i> <div><span>Moteur</span><p>${data.techDetails.moteur}</p></div></div>
+            <div class="spec-item"><i class="fa-solid fa-bolt"></i> <div><span>Vitesse max</span><p>${data.techDetails.vitesse}</p></div></div>
+            <div class="spec-item"><i class="fa-solid fa-horse"></i> <div><span>Puissance</span><p>${data.techDetails.puissance}</p></div></div>
+            <div class="spec-item"><i class="fa-solid fa-circle-notch"></i> <div><span>Couple max</span><p>${data.techDetails.couple}</p></div></div>
+            <div class="spec-item"><i class="fa-solid fa-stopwatch"></i> <div><span>0-100 km/h</span><p>${data.techDetails.chrono}</p></div></div>
+            <div class="spec-item"><i class="fa-solid fa-weight-hanging"></i> <div><span>Poids</span><p>${data.techDetails.poids}</p></div></div>
+            <div class="spec-item"><i class="fa-solid fa-sliders"></i> <div><span>Transmission</span><p>${data.techDetails.boite}</p></div></div>
+            <div class="spec-item"><i class="fa-solid fa-road"></i> <div><span>Motricité</span><p>${data.techDetails.transmission}</p></div></div>
+        `;
+    }
+
+    // 2. Mise à jour de l'onglet Avis - Note Globale
+    const ratingGrade = document.getElementById('rating-grade');
+    const ratingCount = document.getElementById('rating-count');
+    const globalStars = document.getElementById('global-stars');
+
+    if (ratingGrade) ratingGrade.innerText = data.reviews.score;
+    if (ratingCount) ratingCount.innerText = `Basé sur ${data.reviews.count} avis`;
+    if (globalStars) {
+        const scoreNum = Math.floor(parseFloat(data.reviews.score));
+        globalStars.innerHTML = '★'.repeat(scoreNum) + '☆'.repeat(5 - scoreNum);
+    }
+
+    // 3. Répartition des barres de progression
+    const barsContainer = document.getElementById('reviews-distribution');
+    if (barsContainer) {
+        barsContainer.innerHTML = data.reviews.distribution.map((percentage, index) => `
+            <div class="dist-row">
+                <span>${5 - index} ★</span>
+                <div class="progress-bar"><div class="progress-fill" style="width: ${percentage}%"></div></div>
+                <span>${percentage}%</span>
+            </div>
+        `).join('');
+    }
+
+    // 4. Liste des commentaires récents
+    const reviewsList = document.getElementById('reviews-list-container');
+    if (reviewsList) {
+        reviewsList.innerHTML = data.reviews.list.map(rev => `
+            <div class="review-card">
+                <div class="review-header">
+                    <div class="user-info">
+                        <div class="user-avatar">${rev.name[0]}</div>
+                        <div>
+                            <h4>${rev.name} ${rev.bought ? '<span class="badge-bought">Acheté</span>' : ''}</h4>
+                            <div class="review-stars">${'★'.repeat(rev.rating)}${'☆'.repeat(5 - rev.rating)}</div>
+                        </div>
+                    </div>
+                    <span class="review-date">${rev.date}</span>
+                </div>
+                <p class="review-text">${rev.text}</p>
+            </div>
+        `).join('');
+    }
+}
 
 // =========================================================================
 // CONTRÔLE AUDIO DU MOTEUR
@@ -221,10 +356,10 @@ playSoundBtn.addEventListener('click', () => {
     
     // Création et lancement de l'objet audio
     currentAudio = new Audio(soundPath);
-    currentAudio.volume = 0.2; // Volume à 70% pour ne pas détruire les oreilles
+    currentAudio.volume = 0.2; // Volume modéré
     currentAudio.play();
 
-    // Effet visuel optionnel sur le bouton pendant la lecture
+    // Effet visuel sur le bouton pendant la lecture
     playSoundBtn.classList.add('playing');
     playSoundBtn.innerHTML = `<i class="fa-solid fa-gauge-high"></i> Vroooam !`;
 
@@ -235,7 +370,7 @@ playSoundBtn.addEventListener('click', () => {
     };
 });
 
-// SÉCURITÉ : Si l'utilisateur clique sur "Suivant" ou "Précédent", on coupe immédiatement le son
+// SÉCURITÉ : Si l'utilisateur change de modèle, on coupe immédiatement le son
 function stopCurrentVehicleSound() {
     if (currentAudio) {
         currentAudio.pause();
@@ -254,7 +389,7 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// Lancement initial de l'application
+// Lancement initial de l'application & responsive
 window.addEventListener('resize', () => {
     camera.aspect = container.clientWidth / container.clientHeight;
     camera.updateProjectionMatrix();

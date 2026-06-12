@@ -70,12 +70,49 @@
     </main>
 
     <div id="side-panel" class="side-panel">
-        <div class="side-panel-header">
-            <h2 id="panel-car-title">Spécifications</h2>
-            <button id="close-panel-btn" class="close-btn">&times;</button>
+        <button id="close-panel-btn" class="close-btn">&times;</button>
+        
+        <div class="side-panel-tabs">
+            <button class="tab-btn active" data-tab="tab-specs">Fiche Technique</button>
+            <button class="tab-btn" data-tab="tab-reviews">Avis Clients</button>
         </div>
+
         <div class="side-panel-body">
-            <img src="assets/src/images/FT.png" alt="Fiche Technique Spécifications" class="tech-sheet-img">
+            <div id="tab-specs" class="tab-pane active">
+                <h3 class="section-subtitle">Spécifications</h3>
+                <div id="panel-specs-grid" class="specs-grid">
+                    </div>
+            </div>
+
+            <div id="tab-reviews" class="tab-pane">
+                <h3 class="section-subtitle">Avis Clients</h3>
+                
+                <div class="reviews-overview">
+                    <div class="global-score-box">
+                        <span id="rating-grade" class="huge-grade">4.8</span><span class="max-grade">/5</span>
+                        <div id="global-stars" class="stars-gold">★★★★★</div>
+                        <span id="rating-count" class="reviews-count-text">Basé sur 128 avis</span>
+                    </div>
+                    <div id="reviews-distribution" class="distribution-bars">
+                        </div>
+                </div>
+
+                <div id="reviews-list-container" class="reviews-list">
+                    </div>
+
+                <div class="add-review-form">
+                    <h4>Donnez votre avis</h4>
+                    <div class="interactive-stars">
+                        <i class="fa-regular fa-star"></i>
+                        <i class="fa-regular fa-star"></i>
+                        <i class="fa-regular fa-star"></i>
+                        <i class="fa-regular fa-star"></i>
+                        <i class="fa-regular fa-star"></i>
+                    </div>
+                    <textarea placeholder="Partagez votre expérience..." rows="3" class="form-textarea"></textarea>
+                    <button class="submit-review-btn">Envoyer mon avis</button>
+                </div>
+            </div>
         </div>
     </div>
 

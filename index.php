@@ -1,3 +1,8 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -14,6 +19,93 @@
             }
         }
     </script>
+    <style>
+        /* =========================================================================
+           CORRECTIONS DES CONFLITS VISUELS ET COMPORTEMENTAUX (Z-INDEX & BACKGROUNDS)
+           ========================================================================= */
+        
+        /* Sécurité de base pour isoler les sections principales */
+        .section-modeles, .section-contact, .site-footer {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Correctif pour le panneau latéral : arrière-plan étanche et isolation */
+        .side-panel {
+            background: #111111 !important; /* Force un fond opaque pour bloquer la transparence des cartes derrière */
+            box-shadow: -5px 0 30px rgba(0, 0, 0, 0.8);
+            z-index: 9999 !important; /* S'assure de passer au-dessus des grilles de modèles */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .side-panel-body {
+            flex: 1;
+            overflow-y: auto !important; /* Permet de scroller uniquement dans le panneau sans faire bouger le fond */
+            padding: 20px;
+        }
+
+        /* CSS Intégré pour la Modale d'Authentification / Profil */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 10000; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .modal-container {
+            background: #141414; border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 35px; border-radius: 12px; width: 90%; max-width: 550px;
+            position: relative; color: #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+        
+        .close-btn {
+            position: absolute; top: 15px; right: 20px; background: none;
+            border: none; color: #fff; font-size: 32px; cursor: pointer; opacity: 0.6; line-height: 1;
+        }
+        .close-btn:hover { opacity: 1; color: #ff2828; }
+        
+        .auth-tabs { display: flex; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .auth-tabs .tab-btn {
+            flex: 1; background: none; border: none; color: rgba(255,255,255,0.4);
+            padding: 12px; cursor: pointer; font-weight: bold; font-size: 15px; transition: all 0.2s;
+        }
+        .auth-tabs .tab-btn.active { color: #fff; border-bottom: 3px solid #ff2828; }
+        
+        .auth-form-content { display: none; }
+        .auth-form-content.active { display: block; }
+        .auth-form-content h3 { margin-bottom: 20px; font-weight: 500; font-size: 20px; text-align: center; }
+        
+        .input-group { margin-bottom: 18px; display: flex; flex-direction: column; }
+        .input-group-row { display: flex; gap: 15px; }
+        .input-group-row .input-group { flex: 1; }
+        .input-group label { font-size: 11px; text-transform: uppercase; margin-bottom: 6px; opacity: 0.6; letter-spacing: 0.5px; }
+        .input-group input {
+            padding: 12px; background: #222; border: 1px solid #333; color: #fff; border-radius: 6px; outline: none; font-size: 14px;
+        }
+        .input-group input:focus { border-color: #ff2828; background: #282828; }
+        
+        .btn-submit {
+            width: 100%; padding: 14px; background: #ff2828; border: none; color: #fff;
+            font-weight: bold; border-radius: 6px; cursor: pointer; text-transform: uppercase; font-size: 14px; margin-top: 10px; transition: background 0.2s;
+        }
+        .btn-submit:hover { background: #cc1b1b; }
+        .auth-error { color: #ff4d4d; font-size: 13px; text-align: center; margin-top: 12px; font-weight: 500; }
+        
+        /* Profil */
+        .profile-card { text-align: center; }
+        .profile-large-avatar { width: 85px; height: 85px; border-radius: 50%; border: 2px solid #ff2828; object-fit: cover; margin-bottom: 15px; }
+        .profile-card h2 { font-size: 22px; margin-bottom: 5px; }
+        .profile-email, .profile-role { margin: 5px 0; opacity: 0.8; font-size: 14px; }
+        .profile-role span { font-weight: bold; color: #ff2828; }
+        .btn-logout { width: 100%; padding: 12px; background: transparent; border: 1px solid #ff4d4d; color: #ff4d4d; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 20px; transition: all 0.2s; }
+        .btn-logout:hover { background: #ff4d4d; color: #fff; }
+    </style>
 </head>
 <body>
 
@@ -26,16 +118,21 @@
                 <span class="brand-name">Ferrari</span>
             </a>
         </div>
-        <div class="nav-right">
+        <div class="nav-right" style="display: flex; align-items: center;">
             <a href="#modeles" title="Modèles"><i class="fa-solid fa-car"></i></a>
             <a href="#contact" title="Contact"><i class="fa-solid fa-envelope"></i></a>
-            <a href="#" title="Compte personnel"><i class="fa-solid fa-user"></i></a>
-            <a href="#" title="Déconnexion"><i class="fa-solid fa-right-from-bracket"></i></a>
+            
+            <div id="profile-trigger" style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 35px; height: 35px; border-radius: 50%; margin-left: 15px; background: rgba(255,255,255,0.1);">
+                <?php if (isset($_SESSION['user'])): ?>
+                    <img src="<?php echo htmlspecialchars($_SESSION['user']['avatar_url']); ?>" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                <?php else: ?>
+                    <i class="fa-solid fa-user" style="color: #fff;"></i>
+                <?php endif; ?>
+            </div>
         </div>
     </nav>
 
     <main id="showroom" class="showroom-container">
-        
         <div id="webgl-canvas-container"></div>
 
         <div class="ui-panel top-left-panel">
@@ -67,7 +164,6 @@
 
             <button id="open-panel-btn" class="rounded-btn primary-btn">Ouvrir les Détails</button>
         </div>
-
     </main>
 
     <div id="side-panel" class="side-panel">
@@ -83,8 +179,7 @@
 
         <div class="side-panel-body">
             <div id="tab-specs" class="tab-pane active">
-                <div id="panel-specs-grid" class="specs-grid">
-                    </div>
+                <div id="panel-specs-grid" class="specs-grid"></div>
                 
                 <h3 class="telemetry-title">Télémétrie</h3>
                 <div class="telemetry-box">
@@ -122,12 +217,10 @@
                         <div id="global-stars" class="stars"></div>
                         <p id="rating-count">Basé sur 0 avis</p>
                     </div>
-                    <div id="reviews-distribution" class="reviews-distribution">
-                        </div>
+                    <div id="reviews-distribution" class="reviews-distribution"></div>
                 </div>
 
-                <div id="reviews-list-container" class="reviews-list">
-                    </div>
+                <div id="reviews-list-container" class="reviews-list"></div>
 
                 <div class="add-review-section">
                     <h3 class="telemetry-title">Laisser un avis</h3>
@@ -150,7 +243,7 @@
                         </div>
                         <div class="review-input-box textarea-box">
                             <i class="fa-solid fa-pen"></i>
-                            <textarea placeholder="Partagez votre retour d'expérience sur ce modèle..." rows="3" required></textarea>
+                            <textarea id="review-textarea" placeholder="Partagez votre retour d'expérience sur ce modèle..." rows="3" required></textarea>
                         </div>
                         <button type="submit" class="btn-submit-review">
                             Soumettre l'avis <i class="fa-solid fa-paper-plane"></i>
@@ -158,6 +251,72 @@
                     </form>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="auth-modal" class="modal-overlay">
+        <div class="modal-container">
+            <button id="close-modal-btn" class="close-btn">&times;</button>
+            
+            <?php if (!isset($_SESSION['user'])): ?>
+                <div class="auth-tabs">
+                    <button class="tab-btn active" data-tab="login-form">Connexion</button>
+                    <button class="tab-btn" data-tab="register-form">Inscription</button>
+                </div>
+                
+                <form id="login-form" class="auth-form-content active">
+                    <h3>Connexion Pilote</h3>
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" name="email" required placeholder="nom@example.com">
+                    </div>
+                    <div class="input-group">
+                        <label>Mot de passe</label>
+                        <input type="password" id="register-password" name="password" required placeholder="••••••••">
+                        
+                        <div id="password-strength-container" style="margin-top: 8px; display: none;">
+                            <div class="strength-meter-bar" style="height: 6px; width: 100%; background: #333; border-radius: 3px; overflow: hidden; position: relative;">
+                                <div id="strength-bar-fill" style="height: 100%; width: 0%; transition: all 0.3s ease;"></div>
+                            </div>
+                            <small id="strength-text" style="font-size: 11px; margin-top: 4px; display: block; font-weight: 500;"></small>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-submit">Faire vrombir le moteur</button>
+                    <div class="auth-error" id="login-error"></div>
+                </form>
+
+                <form id="register-form" class="auth-form-content">
+                    <h3>Rejoindre la Scuderia</h3>
+                    <div class="input-group-row">
+                        <div class="input-group">
+                            <label>Prénom</label>
+                            <input type="text" name="prenom" required placeholder="Enzo">
+                        </div>
+                        <div class="input-group">
+                            <label>Nom</label>
+                            <input type="text" name="nom" required placeholder="Ferrari">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" name="email" required placeholder="enzo@ferrari.com">
+                    </div>
+                    <div class="input-group">
+                        <label>Mot de passe</label>
+                        <input type="password" name="password" required placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="btn-submit">Créer le compte</button>
+                    <div class="auth-error" id="register-error"></div>
+                </form>
+            <?php else: ?>
+                <div id="profile-info" class="profile-card">
+                    <img src="<?php echo htmlspecialchars($_SESSION['user']['avatar_url']); ?>" alt="Avatar" class="profile-large-avatar">
+                    <h2><?php echo htmlspecialchars($_SESSION['user']['prenom'] . ' ' . $_SESSION['user']['nom']); ?></h2>
+                    <p class="profile-email"><i class="fa-solid fa-envelope"></i> <?php echo htmlspecialchars($_SESSION['user']['email']); ?></p>
+                    <p class="profile-role"><i class="fa-solid fa-shield-halved"></i> Statut : <span><?php echo htmlspecialchars($_SESSION['user']['role'] ?? 'Membre'); ?></span></p>
+                    <button id="logout-btn" class="btn-logout">Déconnexion</button>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 

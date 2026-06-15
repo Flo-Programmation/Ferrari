@@ -78,7 +78,7 @@ const carData = [
 ];
 
 let currentIndex = 0;
-const loadedGroups = new Map(); // Cache d'objets 3D optimisé
+const loadedGroups = new Map();
 
 // =========================================================================
 // 2. INITIALISATION DE LA SCÈNE ET DES COMPOSANTS GRAPHES
@@ -86,9 +86,8 @@ const loadedGroups = new Map(); // Cache d'objets 3D optimisé
 const container = document.getElementById('webgl-canvas-container');
 const scene = new THREE.Scene();
 
-// Caméra perspective optimisée pour affichage grand format de profil
 const camera = new THREE.PerspectiveCamera(35, container.clientWidth / container.clientHeight, 0.1, 100);
-camera.position.set(0, 0.3, 5.0); // Placement de profil initial propre
+camera.position.set(0, 0.3, 5.0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(container.clientWidth, container.clientHeight);
@@ -96,7 +95,6 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 container.appendChild(renderer.domElement);
 
-// ÉCLAIRAGE CONFIGURATEUR STUDIO
 scene.add(new THREE.AmbientLight(0xffffff, 1.0));
 const lightTop = new THREE.DirectionalLight(0xffffff, 2.5);
 lightTop.position.set(0, 8, 2);
@@ -106,7 +104,6 @@ const lightFill = new THREE.DirectionalLight(0xffffff, 1.0);
 lightFill.position.set(5, 2, -2);
 scene.add(lightFill);
 
-// CONFIGURATION DES CONTRÔLES (Restriction stricte demandée)
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
@@ -115,11 +112,10 @@ controls.enableZoom = true;
 controls.minDistance = 3.5;
 controls.maxDistance = 6.5;
 
-// Verrouillage angulaire horizontal pour ne voir qu'un peu l'avant et l'arrière
-controls.minAzimuthAngle = -Math.PI / 5; // Rotation limitée vers l'avant
-controls.maxAzimuthAngle = Math.PI / 5;  // Rotation limitée vers l'arrière
-controls.minPolarAngle = Math.PI / 2.5;  // Plafond vertical de plongée
-controls.maxPolarAngle = Math.PI / 1.95; // Sol technique
+controls.minAzimuthAngle = -Math.PI / 5;
+controls.maxAzimuthAngle = Math.PI / 5;
+controls.minPolarAngle = Math.PI / 2.5;
+controls.maxPolarAngle = Math.PI / 1.95;
 
 // =========================================================================
 // 3. CHARGEMENT ET PRE-TRAITEMENT ASYNCHRONE
@@ -137,20 +133,17 @@ function loadVehicleModel(index) {
             const group = new THREE.Group();
             group.add(model);
 
-            // Normalisation de l'échelle et centrage automatique
             const box = new THREE.Box3().setFromObject(model);
             const size = new THREE.Vector3();
             box.getSize(size);
             const maxDim = Math.max(size.x, size.y, size.z);
-            const targetScale = 3.3 / maxDim; // Calibrage taille de la voiture
+            const targetScale = 3.3 / maxDim;
             model.scale.set(targetScale, targetScale, targetScale);
 
-            // Correction spécifique de rotation pour le modèle 599obj
             if (carData[index].model.includes('599obj.glb')) {
                 model.rotation.x = -Math.PI / 2;
             }
 
-            // Réajustement du point de pivot au centre géométrique
             const correctedBox = new THREE.Box3().setFromObject(model);
             const center = correctedBox.getCenter(new THREE.Vector3());
             model.position.set(-center.x, -center.y + 0.1, -center.z);
@@ -167,15 +160,10 @@ function loadVehicleModel(index) {
 let currentActiveGroup = null;
 
 async function changeVehicle(newIndex) {
-    // NOUVEAU : On coupe le son en cours avant de changer de modèle
     stopCurrentVehicleSound();
-
     currentIndex = newIndex;
-    
-    // Effet d'atténuation optique (Fade-out)
     container.style.opacity = 0.1;
 
-    // Mise à jour de l'interface textuelle synchrone
     const data = carData[currentIndex];
     document.getElementById('car-title').innerText = data.title;
     document.getElementById('car-subtitle').innerText = data.subtitle;
@@ -183,21 +171,15 @@ async function changeVehicle(newIndex) {
     document.getElementById('car-specs').innerHTML = data.specs;
     document.getElementById('car-desc').innerText = data.desc;
     
-    // NOUVEAU : Injection dynamique des données spécifiques de la maquette dans le panneau
     updateSidePanelContent(data);
 
-    // Actualisation de l'état des puces de navigation
     document.querySelectorAll('.dot').forEach((dot, idx) => {
         dot.classList.toggle('active', idx === currentIndex);
     });
 
-    // Chargement de l'entité 3D correspondante
     const nextGroup = await loadVehicleModel(currentIndex);
 
-    // Retrait sélectif de l'ancien modèle du graphe de scène
     if (currentActiveGroup) scene.remove(currentActiveGroup);
-    
-    // Injection du nouveau modèle et réinitialisation de la perspective de profil
     currentActiveGroup = nextGroup;
     scene.add(currentActiveGroup);
     
@@ -205,11 +187,9 @@ async function changeVehicle(newIndex) {
     camera.position.set(0, 0.3, 5.0);
     controls.target.set(0, 0, 0);
 
-    // Rétablissement de la visibilité (Fade-in)
     container.style.opacity = 1;
 }
 
-// INTERRUPTEURS ET ÉCOUTEURS D'ÉVÉNEMENTS
 document.getElementById('arrow-next').addEventListener('click', () => {
     let nextIdx = (currentIndex + 1) % carData.length;
     changeVehicle(nextIdx);
@@ -234,7 +214,6 @@ const sidePanel = document.getElementById('side-panel');
 const openPanelBtn = document.getElementById('open-panel-btn');
 const closePanelBtn = document.getElementById('close-panel-btn');
 
-// Gestion du basculement des onglets (Fiche Technique / Avis)
 const tabBtns = document.querySelectorAll('.tab-btn');
 const tabContents = document.querySelectorAll('.tab-pane');
 
@@ -248,25 +227,28 @@ tabBtns.forEach(btn => {
     });
 });
 
-// Ouverture et Fermeture du volet
-openPanelBtn.addEventListener('click', () => {
-    sidePanel.classList.add('open');
-});
+if (openPanelBtn) {
+    openPanelBtn.addEventListener('click', () => {
+        sidePanel.classList.add('open');
+    });
+}
 
-closePanelBtn.addEventListener('click', () => sidePanel.classList.remove('open'));
+if (closePanelBtn) {
+    closePanelBtn.addEventListener('click', () => sidePanel.classList.remove('open'));
+}
 
-// Fermeture si clic à l'extérieur du volet
 window.addEventListener('click', (e) => {
-    if (!sidePanel.contains(e.target) && e.target !== openPanelBtn && sidePanel.classList.contains('open')) {
+    if (sidePanel && !sidePanel.contains(e.target) && e.target !== openPanelBtn && sidePanel.classList.contains('open')) {
         sidePanel.classList.remove('open');
     }
 });
 
-// Fonction d'injection des données dynamiques du véhicule actif (Spécifications + Avis)
 function updateSidePanelContent(data) {
-    document.getElementById('track-fiorano').innerText = data.tracks.fiorano;
-    document.getElementById('track-monza').innerText = data.tracks.monza;
-    // 1. Mise à jour de l'onglet Fiche Technique
+    const fioranoEl = document.getElementById('track-fiorano');
+    const monzaEl = document.getElementById('track-monza');
+    if (fioranoEl) fioranoEl.innerText = data.tracks.fiorano;
+    if (monzaEl) monzaEl.innerText = data.tracks.monza;
+    
     const specsGrid = document.getElementById('panel-specs-grid');
     if (specsGrid) {
         specsGrid.innerHTML = `
@@ -280,50 +262,6 @@ function updateSidePanelContent(data) {
             <div class="spec-item"><i class="fa-solid fa-road"></i> <div><span>Motricité</span><p>${data.techDetails.transmission}</p></div></div>
         `;
     }
-
-    // 2. Mise à jour de l'onglet Avis - Note Globale
-    const ratingGrade = document.getElementById('rating-grade');
-    const ratingCount = document.getElementById('rating-count');
-    const globalStars = document.getElementById('global-stars');
-
-    if (ratingGrade) ratingGrade.innerText = data.reviews.score;
-    if (ratingCount) ratingCount.innerText = `Basé sur ${data.reviews.count} avis`;
-    if (globalStars) {
-        const scoreNum = Math.floor(parseFloat(data.reviews.score));
-        globalStars.innerHTML = '★'.repeat(scoreNum) + '☆'.repeat(5 - scoreNum);
-    }
-
-    // 3. Répartition des barres de progression
-    const barsContainer = document.getElementById('reviews-distribution');
-    if (barsContainer) {
-        barsContainer.innerHTML = data.reviews.distribution.map((percentage, index) => `
-            <div class="dist-row">
-                <span>${5 - index} ★</span>
-                <div class="progress-bar"><div class="progress-fill" style="width: ${percentage}%"></div></div>
-                <span>${percentage}%</span>
-            </div>
-        `).join('');
-    }
-
-    // 4. Liste des commentaires récents
-    const reviewsList = document.getElementById('reviews-list-container');
-    if (reviewsList) {
-        reviewsList.innerHTML = data.reviews.list.map(rev => `
-            <div class="review-card">
-                <div class="review-header">
-                    <div class="user-info">
-                        <div class="user-avatar">${rev.name[0]}</div>
-                        <div>
-                            <h4>${rev.name} ${rev.bought ? '<span class="badge-bought">Acheté</span>' : ''}</h4>
-                            <div class="review-stars">${'★'.repeat(rev.rating)}${'☆'.repeat(5 - rev.rating)}</div>
-                        </div>
-                    </div>
-                    <span class="review-date">${rev.date}</span>
-                </div>
-                <p class="review-text">${rev.text}</p>
-            </div>
-        `).join('');
-    }
 }
 
 // =========================================================================
@@ -332,35 +270,30 @@ function updateSidePanelContent(data) {
 const playSoundBtn = document.getElementById('play-sound-btn');
 let currentAudio = null;
 
-playSoundBtn.addEventListener('click', () => {
-    // Si un son est déjà en train de jouer, on l'arrête pour pouvoir le relancer
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-    }
+if (playSoundBtn) {
+    playSoundBtn.addEventListener('click', () => {
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
+        }
 
-    // On récupère le fichier son associé à la voiture actuellement affichée
-    const soundPath = carData[currentIndex].sound;
-    
-    // Création et lancement de l'objet audio
-    currentAudio = new Audio(soundPath);
-    currentAudio.volume = 0.2; // Volume modéré
-    currentAudio.play();
+        const soundPath = carData[currentIndex].sound;
+        currentAudio = new Audio(soundPath);
+        currentAudio.volume = 0.2; 
+        currentAudio.play();
 
-    // Effet visuel sur le bouton pendant la lecture
-    playSoundBtn.classList.add('playing');
-    playSoundBtn.innerHTML = `<i class="fa-solid fa-gauge-high"></i> Vroooam !`;
+        playSoundBtn.classList.add('playing');
+        playSoundBtn.innerHTML = `<i class="fa-solid fa-gauge-high"></i> Vroooam !`;
 
-    // Remettre le bouton à l'état initial quand le son se termine
-    currentAudio.onended = () => {
-        playSoundBtn.classList.remove('playing');
-        playSoundBtn.innerHTML = `<i class="fa-solid fa-volume-high"></i> Écouter le moteur`;
-    };
-});
+        currentAudio.onended = () => {
+            playSoundBtn.classList.remove('playing');
+            playSoundBtn.innerHTML = `<i class="fa-solid fa-volume-high"></i> Écouter le moteur`;
+        };
+    });
+}
 
-// SÉCURITÉ : Si l'utilisateur change de modèle, on coupe immédiatement le son
 function stopCurrentVehicleSound() {
-    if (currentAudio) {
+    if (currentAudio && playSoundBtn) {
         currentAudio.pause();
         currentAudio.currentTime = 0;
         playSoundBtn.classList.remove('playing');
@@ -369,7 +302,218 @@ function stopCurrentVehicleSound() {
 }
 
 // =========================================================================
-// 6. RENDER LOOP ET ADAPTABILITÉ FENÊTRE
+// 6. GESTION DE LA MODALE D'AUTHENTIFICATION & AJAX (CONNEXION / INSCRIPTION)
+// =========================================================================
+const authModal = document.getElementById('auth-modal');
+const profileTrigger = document.getElementById('profile-trigger');
+const closeModalBtn = document.getElementById('close-modal-btn');
+
+if (profileTrigger && authModal) {
+    profileTrigger.addEventListener('click', () => authModal.classList.add('active'));
+}
+if (closeModalBtn && authModal) {
+    closeModalBtn.addEventListener('click', () => authModal.classList.remove('active'));
+}
+window.addEventListener('click', (e) => {
+    if (e.target === authModal) {
+        authModal.classList.remove('active');
+    }
+});
+
+const modalTabBtns = document.querySelectorAll('#auth-modal .auth-tabs .tab-btn');
+const modalFormContents = document.querySelectorAll('#auth-modal .auth-form-content');
+
+modalTabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        modalTabBtns.forEach(b => b.classList.remove('active'));
+        modalFormContents.forEach(f => f.classList.remove('active'));
+        
+        btn.classList.add('active');
+        const targetForm = document.getElementById(btn.dataset.tab);
+        if (targetForm) targetForm.classList.add('active');
+    });
+});
+
+// AJAX : Traitement de l'Inscription
+const registerForm = document.getElementById('register-form');
+const registerError = document.getElementById('register-error');
+const registerPasswordInput = document.getElementById('register-password');
+
+if (registerForm) {
+    registerForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (registerError) registerError.textContent = "";
+
+        // 1. Validation de l'adresse Email
+        const emailInput = document.getElementById('register-email');
+        const emailValue = emailInput ? emailInput.value.trim().toLowerCase() : "";
+        
+        const allowedDomains = [
+            'gmail.com', 'outlook.com', 'outlook.fr', 
+            'hotmail.com', 'hotmail.fr', 'yahoo.com', 
+            'yahoo.fr', 'icloud.com', 'orange.fr', 
+            'wanadoo.fr', 'sfr.fr', 'free.fr', 'live.fr'
+        ];
+
+        const emailParts = emailValue.split('@');
+        const emailDomain = emailParts[1];
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+        if (!emailRegex.test(emailValue) || !allowedDomains.includes(emailDomain)) {
+            if (registerError) {
+                registerError.textContent = "Veuillez utiliser un e-mail connu (ex: @gmail.com, @outlook.fr).";
+                registerError.style.color = "#ff4d4d";
+            }
+            if (emailInput) {
+                emailInput.focus();
+                emailInput.style.borderColor = "#ff4d4d";
+            }
+            return;
+        } else {
+            if (emailInput) emailInput.style.borderColor = "rgba(255,255,255,0.1)";
+        }
+
+        // 2. Sécurité : Vérification mot de passe
+        const passwordValue = registerPasswordInput ? registerPasswordInput.value : "";
+        if (passwordValue.length < 6) {
+            if (registerError) registerError.textContent = "Le mot de passe doit contenir au moins 6 caractères.";
+            return;
+        }
+
+        // 3. AJOUT : Validation du jeton Google reCAPTCHA
+        const recaptchaResponse = grecaptcha.getResponse();
+        if (recaptchaResponse.length === 0) {
+            if (registerError) {
+                registerError.textContent = "Veuillez valider le reCAPTCHA pour prouver que vous n'êtes pas un robot.";
+                registerError.style.color = "#ff4d4d";
+            }
+            return;
+        }
+
+        const formData = new FormData(registerForm);
+        formData.append('action', 'register');
+
+        fetch('auth_process.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) throw new Error("Erreur HTTP " + response.status);
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                alert("Inscription réussie ! Connexion en cours...");
+                window.location.reload(); 
+            } else {
+                if (registerError) registerError.textContent = data.message || "Erreur d'inscription.";
+                // Réinitialise le reCAPTCHA en cas d'erreur serveur pour permettre un nouvel essai
+                grecaptcha.reset();
+            }
+        })
+        .catch(error => {
+            console.error(error);
+            if (registerError) registerError.textContent = "Erreur de communication avec le serveur.";
+            grecaptcha.reset();
+        });
+    });
+}
+
+// INDICATEUR DE FORCE DU MOT DE PASSE EN TEMPS RÉEL
+const strengthContainer = document.getElementById('password-strength-container');
+const strengthBarFill = document.getElementById('strength-bar-fill');
+const strengthText = document.getElementById('strength-text');
+
+if (registerPasswordInput && strengthContainer && strengthBarFill && strengthText) {
+    registerPasswordInput.addEventListener('input', function() {
+        const val = registerPasswordInput.value;
+        
+        if (val.length === 0) {
+            strengthContainer.style.display = "none";
+            return;
+        }
+
+        strengthContainer.style.display = "block";
+        let score = 0;
+        
+        if (val.length >= 6) score++;
+        if (val.length >= 10) score++;
+        if (/[A-Z]/.test(val) && /[a-z]/.test(val)) score++;
+        if (/[0-9]/.test(val)) score++;
+        if (/[^A-Za-z0-9]/.test(val)) score++;
+
+        // Mise à jour de la taille et de la couleur proportionnellement
+        if (score <= 2) {
+            strengthBarFill.style.width = "33%";
+            strengthBarFill.style.background = "#ff2828"; // Rouge
+            strengthText.textContent = "Sécurité : Faible 🔴";
+            strengthText.style.color = "#ff2828";
+        } else if (score === 3 || score === 4) {
+            strengthBarFill.style.width = "66%";
+            strengthBarFill.style.background = "#ffaa00"; // Orange
+            strengthText.textContent = "Sécurité : Moyen 🟡";
+            strengthText.style.color = "#ffaa00";
+        } else if (score >= 5) {
+            strengthBarFill.style.width = "100%";
+            strengthBarFill.style.background = "#00cc66"; // Vert
+            strengthText.textContent = "Sécurité : Excellent / Fort 🟢";
+            strengthText.style.color = "#00cc66";
+        }
+    });
+}
+
+// AJAX : Traitement de la Connexion
+const loginForm = document.getElementById('login-form');
+const loginError = document.getElementById('login-error');
+
+if (loginForm) {
+    loginForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (loginError) loginError.textContent = "";
+
+        const formData = new FormData(loginForm);
+        formData.append('action', 'login');
+
+        fetch('auth_process.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) throw new Error("Erreur HTTP " + response.status);
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                if (loginError) loginError.textContent = data.message || "Identifiants invalides.";
+            }
+        })
+        .catch(error => {
+            console.error(error);
+            if (loginError) loginError.textContent = "Erreur de communication avec le serveur.";
+        });
+    });
+}
+
+// Traitement de la Déconnexion
+const logoutBtn = document.getElementById('logout-btn');
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        const formData = new FormData();
+        formData.append('action', 'logout');
+
+        fetch('auth_process.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(() => window.location.reload())
+        .catch(error => console.error("Erreur de déconnexion:", error));
+    });
+}
+
+// =========================================================================
+// 7. RENDER LOOP ET ADAPTABILITÉ FENÊTRE
 // =========================================================================
 function animate() {
     requestAnimationFrame(animate);
@@ -377,12 +521,10 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// Lancement initial de l'application & responsive
 window.addEventListener('resize', () => {
     camera.aspect = container.clientWidth / container.clientHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(container.clientWidth, container.clientHeight);
 });
 
-// Premier chargement de la voiture à l'index 0
 changeVehicle(0).then(() => animate());

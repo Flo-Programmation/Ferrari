@@ -1,3 +1,44 @@
+
+/* =========================================================================
+    PERSONNALISATION DES SCROLLBARS (STYLE PREMIUM SCUDERIA)
+   ========================================================================= */
+
+/* 1. Ciblage pour les navigateurs basés sur WebKit (Chrome, Safari, Edge, Opera) */
+
+/* Largeur et hauteur de la barre */
+::-webkit-scrollbar {
+    width: 6px;               /* Barre verticale très fine */
+    height: 6px;              /* Barre horizontale fine (si applicable) */
+}
+
+/* Fond de la glissière (le rail noir invisible en arrière-plan) */
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+}
+
+/* La poignée mobile (le curseur que l'on déplace) */
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2); /* Blanc translucide par défaut */
+    border-radius: 10px;
+    transition: background 0.3s ease;
+}
+
+/* Effet de survol : la poignée s'illumine en Rouge Ferrari */
+::-webkit-scrollbar-thumb:hover {
+    background: #ef1a2d; /* Le rouge officiel de la Scuderia */
+    box-shadow: 0 0 8px rgba(239, 26, 45, 0.5); /* Léger effet néon */
+}
+
+
+/* 2. Ciblage spécifique pour Firefox (Mise en conformité moderne) */
+@supports (scrollbar-width: thin) {
+    * {
+        scrollbar-width: thin;                        /* Force une barre fine */
+        scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.2); /* [Couleur poignée] [Couleur rail] */
+    }
+}
+
 :root {
     --ferrari-red: #ff2828;
     --panel-bg: rgba(20, 20, 20, 0.55);

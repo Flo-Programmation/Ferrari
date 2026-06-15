@@ -28,14 +28,14 @@ if (session_status() === PHP_SESSION_NONE) {
 
     <nav class="navbar">
         <div class="nav-left">
-            <a href="/" style="display: flex; align-items: center; gap: 15px; text-decoration: none; color: inherit;">
+            <a href="index.php" style="display: flex; align-items: center; gap: 15px; text-decoration: none; color: inherit;">
                 <img src="https://upload.wikimedia.org/wikipedia/fr/thumb/c/c0/Scuderia_Ferrari_Logo.svg/500px-Scuderia_Ferrari_Logo.svg.png" style="height: 40px;" alt="Ferrari">
                 <span style="font-weight: bold; letter-spacing: 1px;">FERRARI</span>
             </a>
         </div>
         
         <div class="nav-right" style="display: flex; align-items: center; gap: 20px;">
-            <div id="profile-trigger" class="profile-icon-container">
+            <div id="profile-trigger" class="profile-icon-container" style="cursor: pointer;">
                 <?php if (isset($_SESSION['user'])): ?>
                     <img src="<?php echo htmlspecialchars($_SESSION['user']['avatar_url']); ?>" alt="Avatar" class="user-avatar-nav">
                 <?php else: ?>
@@ -88,12 +88,19 @@ if (session_status() === PHP_SESSION_NONE) {
                         </div>
                         <div class="input-group">
                             <label>Mot de passe</label>
-                            <input type="password" name="password" required placeholder="••••••••">
+                            <input type="password" id="register-password" name="password" required placeholder="••••••••">
+                            
+                            <div id="password-strength-container" style="margin-top: 8px; display: none;">
+                                <div class="strength-meter-bar" style="height: 6px; width: 100%; background: #222; border: 1px solid #333; border-radius: 3px; overflow: hidden; position: relative;">
+                                    <div id="strength-bar-fill" style="height: 100%; width: 0%; transition: all 0.3s ease; background: #ff2828;"></div>
+                                </div>
+                                <small id="strength-text" style="font-size: 11px; margin-top: 4px; display: block; font-weight: 500;"></small>
+                            </div>
                         </div>
 
                         <div class="input-group re-captcha-container" style="display: flex; justify-content: center; margin: 15px 0;">
-                        <div class="g-recaptcha" data-sitekey="VOTRE_CLE_PUBLIQUE_RECAPTCHA" data-theme="dark"></div>
-                    </div>
+                            <div class="g-recaptcha" data-sitekey="VOTRE_CLE_PUBLIQUE_RECAPTCHA" data-theme="dark"></div>
+                        </div>
                     
                         <button type="submit" class="btn-submit">Créer le compte</button>
                         <div class="auth-error" id="register-error"></div>
@@ -109,7 +116,7 @@ if (session_status() === PHP_SESSION_NONE) {
                     <hr class="profile-hr">
                     
                     <?php if ($_SESSION['user']['role'] === 'admin'): ?>
-                        <a href="/admin/index.php" class="btn-admin-panel"><i class="fa-solid fa-gauge-high"></i> Panel Administration</a>
+                        <a href="admin/index.php" class="btn-admin-panel"><i class="fa-solid fa-gauge-high"></i> Panel Administration</a>
                     <?php endif; ?>
                     
                     <button id="logout-btn" class="btn-logout"><i class="fa-solid fa-power-off"></i> Déconnexion</button>

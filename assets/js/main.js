@@ -24,14 +24,9 @@ const carData = [
             boite: "DCT 7 rapports",
             transmission: "Propulsion"
         },
-        reviews: {
-            score: "4.9",
-            count: "142",
-            distribution: [92, 6, 2, 0, 0],
-            list: [
-                { name: "Mathieu D.", date: "12 mai 2026", bought: true, rating: 5, text: "Une expérience de conduite inégalée. La Monza SP3 Evo est une œuvre d'art, tant par son design que par ses performances." },
-                { name: "Julien L.", date: "3 avril 2026", bought: false, rating: 5, text: "Puissance, élégance et exclusivité. Ferrari repousse encore les limites avec ce modèle exceptionnel." }
-            ]
+        tracks: {
+            fiorano: "1'16\"30",
+            monza: "1'41\"20"
         }
     },
     {
@@ -52,13 +47,9 @@ const carData = [
             boite: "Direct Drive",
             transmission: "Intégrale (4WD)"
         },
-        reviews: {
-            score: "4.7",
-            count: "58",
-            distribution: [80, 12, 5, 3, 0],
-            list: [
-                { name: "Guillaume T.", date: "28 mai 2026", bought: true, rating: 5, text: "L'accélération instantanée est absolument terrifiante. Le futur de Ferrari est entre de bonnes mains." }
-            ]
+        tracks: {
+            fiorano: "1'12\"10 (Record)",
+            monza: "1'35\"40"
         }
     },
     {
@@ -79,14 +70,9 @@ const carData = [
             boite: "DCT 8 rapports",
             transmission: "Propulsion"
         },
-        reviews: {
-            score: "4.8",
-            count: "128",
-            distribution: [89, 8, 2, 1, 0],
-            list: [
-                { name: "Alexis R.", date: "14 avril 2026", bought: true, rating: 5, text: "Le compromis idéal entre la brutalité du thermique et l'instantanéité de l'électrique. Sublime en blanc." },
-                { name: "Thomas V.", date: "22 mars 2026", bought: true, rating: 4, text: "Une symphonie mécanique à ciel ouvert. Seul bémol, les espaces de rangement inexistants, mais on ne l'achète pas pour ça !" }
-            ]
+        tracks: {
+            fiorano: "1'17\"80",
+            monza: "1'43\"15"
         }
     }
 ];
@@ -278,6 +264,8 @@ window.addEventListener('click', (e) => {
 
 // Fonction d'injection des données dynamiques du véhicule actif (Spécifications + Avis)
 function updateSidePanelContent(data) {
+    document.getElementById('track-fiorano').innerText = data.tracks.fiorano;
+    document.getElementById('track-monza').innerText = data.tracks.monza;
     // 1. Mise à jour de l'onglet Fiche Technique
     const specsGrid = document.getElementById('panel-specs-grid');
     if (specsGrid) {

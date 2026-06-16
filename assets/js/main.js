@@ -1,5 +1,6 @@
 /**
  * Scuderia Ferrari Exhibition - Main Application Script
+ * Version sécurisée avec CSRF, XSS protection, validation client et CSP
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -53,37 +54,170 @@ const carData = [
     }
 ];
 
-let currentIndex = 0;
-const loadedGroups = new Map();
-let currentAudio = null; // Déplacé ici pour être accessible partout
+// =========================================================================
+// 2. ÉTAT GLOBAL DE L'APPLICATION (encapsulé dans un objet pour limiter l'exposition)
+// =========================================================================
+const AppState = {
+    currentIndex: 0,
+    loadedGroups: new Map(),
+    currentAudio: null,
+    currentActiveGroup: null,
+    csrfToken: null,
+    isAuthenticated: false
+};
 
-// Fonctions utilitaires audio définies tôt pour éviter les erreurs de chargement
-function stopCurrentVehicleSound() { 
-    if (currentAudio) { 
-        currentAudio.pause(); 
-        currentAudio.currentTime = 0; 
-    } 
-}
+// =========================================================================
+// 3. FONCTIONS UTILITAIRES DE SÉCURITÉ
+// =========================================================================
 
-// Sécurité anti-injection HTML
+/**
+ * Échappe le HTML pour prévenir les XSS.
+ * Utilisé pour TOUT affichage de données venant de l'extérieur (API, utilisateur).
+ */
 function escapeHtml(text) {
     if (!text) return '';
     return text
         .toString()
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+        .replace(/\//g, '&#x2F;');
+}
+
+/**
+ * Échappe une URL pour éviter les injections dans les attributs src/href
+ */
+function escapeUrl(url) {
+    if (!url) return '';
+    // Ne garder que les protocoles autorisés
+    const allowedProtocols = ['https://', 'http://', 'data:', 'blob:'];
+    const sanitized = escapeHtml(url.trim());
+    for (const protocol of allowedProtocols) {
+        if (sanitized.toLowerCase().startsWith(protocol)) {
+            return sanitized;
+        }
+    }
+    // Si aucun protocole autorisé, retourner une URL par défaut
+    return 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
+}
+
+/**
+ * Valide un email côté client avant envoi
+ */
+function isValidEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email.trim());
+}
+
+/**
+ * Vérifie la force du mot de passe côté client
+ */
+function getPasswordStrength(password) {
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (password.length >= 12) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+    return score;
+}
+
+/**
+ * Limite la longueur d'une chaîne
+ */
+function truncateText(text, maxLength) {
+    if (!text) return '';
+    text = text.trim();
+    if (text.length > maxLength) {
+        return text.substring(0, maxLength);
+    }
+    return text;
+}
+
+/**
+ * Gère les réponses API de manière sécurisée
+ */
+async function secureFetch(url, options = {}) {
+    try {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Réponse non-JSON reçue');
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Erreur réseau:', error);
+        return { success: false, message: 'Erreur de connexion au serveur.' };
+    }
 }
 
 // =========================================================================
-// 2. INITIALISATION DE LA SCÈNE THREE.JS
+// 4. GESTION DU TOKEN CSRF
 // =========================================================================
+
+/**
+ * Récupère le token CSRF depuis le serveur
+ */
+async function fetchCsrfToken() {
+    const data = await secureFetch('api/main.php?action=csrf');
+    if (data.success && data.csrf_token) {
+        AppState.csrfToken = data.csrf_token;
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Ajoute le token CSRF à un FormData
+ */
+function addCsrfToken(formData) {
+    if (AppState.csrfToken) {
+        formData.append('csrf_token', AppState.csrfToken);
+    }
+    return formData;
+}
+
+// =========================================================================
+// 5. GESTION AUDIO
+// =========================================================================
+
+function stopCurrentVehicleSound() {
+    if (AppState.currentAudio) {
+        AppState.currentAudio.pause();
+        AppState.currentAudio.currentTime = 0;
+        AppState.currentAudio = null;
+    }
+}
+
+function playVehicleSound() {
+    stopCurrentVehicleSound();
+    const audio = new Audio(carData[AppState.currentIndex].sound);
+    audio.volume = 0.2;
+    audio.play().catch(err => {
+        console.warn('Lecture audio impossible:', err);
+    });
+    AppState.currentAudio = audio;
+}
+
+// =========================================================================
+// 6. INITIALISATION DE LA SCÈNE THREE.JS
+// =========================================================================
+
 const container = document.getElementById('webgl-canvas-container');
 const scene = new THREE.Scene();
 
-const camera = new THREE.PerspectiveCamera(35, container ? container.clientWidth / container.clientHeight : 1, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(
+    35,
+    container ? container.clientWidth / container.clientHeight : 1,
+    0.1,
+    100
+);
 camera.position.set(0, 0.3, 5.0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -111,13 +245,14 @@ controls.minPolarAngle = Math.PI / 2.5;
 controls.maxPolarAngle = Math.PI / 1.95;
 
 // =========================================================================
-// 3. CHARGEMENT DES MODÈLES 3D
+// 7. CHARGEMENT DES MODÈLES 3D
 // =========================================================================
+
 const loader = new GLTFLoader();
 
 function loadVehicleModel(index) {
-    if (loadedGroups.has(index)) {
-        return Promise.resolve(loadedGroups.get(index));
+    if (AppState.loadedGroups.has(index)) {
+        return Promise.resolve(AppState.loadedGroups.get(index));
     }
     return new Promise((resolve) => {
         loader.load(carData[index].model, (gltf) => {
@@ -139,23 +274,22 @@ function loadVehicleModel(index) {
             const center = correctedBox.getCenter(new THREE.Vector3());
             model.position.set(-center.x, -center.y + 0.1, -center.z);
 
-            loadedGroups.set(index, group);
+            AppState.loadedGroups.set(index, group);
             resolve(group);
         });
     });
 }
 
 // =========================================================================
-// 4. LOGIQUE DE CHANGEMENT DE VÉHICULE (SLIDER)
+// 8. LOGIQUE DE CHANGEMENT DE VÉHICULE (SLIDER)
 // =========================================================================
-let currentActiveGroup = null;
 
 async function changeVehicle(newIndex) {
     stopCurrentVehicleSound();
-    currentIndex = newIndex;
+    AppState.currentIndex = newIndex;
     if (container) container.style.opacity = 0.1;
 
-    const data = carData[currentIndex];
+    const data = carData[AppState.currentIndex];
     
     const titleEl = document.getElementById('car-title');
     const subtitleEl = document.getElementById('car-subtitle');
@@ -166,20 +300,21 @@ async function changeVehicle(newIndex) {
     if (titleEl) titleEl.innerText = data.title;
     if (subtitleEl) subtitleEl.innerText = data.subtitle;
     if (badgeEl) badgeEl.innerText = data.badge;
+    // specs vient du code source (pas de l'API) -> innerHTML acceptable
     if (specsEl) specsEl.innerHTML = data.specs;
     if (descEl) descEl.innerText = data.desc;
     
     updateSidePanelContent(data);
-    fetchCommentsForVehicle(currentIndex);
+    fetchCommentsForVehicle(AppState.currentIndex);
 
     document.querySelectorAll('.dots-navigation .dot').forEach((dot, idx) => {
-        dot.classList.toggle('active', idx === currentIndex);
+        dot.classList.toggle('active', idx === AppState.currentIndex);
     });
 
-    const nextGroup = await loadVehicleModel(currentIndex);
-    if (currentActiveGroup) scene.remove(currentActiveGroup);
-    currentActiveGroup = nextGroup;
-    scene.add(currentActiveGroup);
+    const nextGroup = await loadVehicleModel(AppState.currentIndex);
+    if (AppState.currentActiveGroup) scene.remove(AppState.currentActiveGroup);
+    AppState.currentActiveGroup = nextGroup;
+    scene.add(AppState.currentActiveGroup);
     
     controls.reset();
     camera.position.set(0, 0.3, 5.0);
@@ -188,12 +323,21 @@ async function changeVehicle(newIndex) {
 
 const arrowNext = document.getElementById('arrow-next');
 const arrowPrev = document.getElementById('arrow-prev');
-if (arrowNext) arrowNext.addEventListener('click', () => changeVehicle((currentIndex + 1) % carData.length));
-if (arrowPrev) arrowPrev.addEventListener('click', () => changeVehicle((currentIndex - 1 + carData.length) % carData.length));
+if (arrowNext) {
+    arrowNext.addEventListener('click', () => {
+        changeVehicle((AppState.currentIndex + 1) % carData.length);
+    });
+}
+if (arrowPrev) {
+    arrowPrev.addEventListener('click', () => {
+        changeVehicle((AppState.currentIndex - 1 + carData.length) % carData.length);
+    });
+}
 
 // =========================================================================
-// 5. ENVOI ET CHARGEMENT DES AVIS EN AJAX (BASE DE DONNÉES)
+// 9. ENVOI ET CHARGEMENT DES AVIS (AJAX SÉCURISÉ)
 // =========================================================================
+
 function fetchCommentsForVehicle(vehicleIndex) {
     const listContainer = document.getElementById('reviews-list-container');
     const sidePreview = document.getElementById('reviews-side-preview');
@@ -202,34 +346,38 @@ function fetchCommentsForVehicle(vehicleIndex) {
     const avgNumSpan = document.getElementById('average-rating-num');
     const totalCountSpan = document.getElementById('total-reviews-count');
 
-    fetch(`api/main.php?action=get&vehicle_index=${vehicleIndex}`)
-        .then(res => res.json())
+    // Validation côté client du paramètre
+    const sanitizedIndex = Math.max(0, parseInt(vehicleIndex) || 0);
+
+    secureFetch(`api/main.php?action=get&vehicle_index=${sanitizedIndex}`)
         .then(data => {
             let totalComments = 0;
             let averageRating = 0.0;
             let starCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
 
-            if (data && data.success && data.comments && data.comments.length > 0) {
+            if (data && data.success && data.comments && Array.isArray(data.comments) && data.comments.length > 0) {
                 totalComments = data.comments.length;
                 let sum = 0;
                 data.comments.forEach(c => {
-                    const r = Math.round(parseFloat(c.rating));
+                    const r = Math.min(5, Math.max(1, Math.round(parseFloat(c.rating) || 0)));
                     sum += r;
                     if (starCounts[r] !== undefined) starCounts[r]++;
                 });
-                averageRating = (sum / totalComments).toFixed(1);
+                averageRating = totalComments > 0 ? (sum / totalComments).toFixed(1) : '0.0';
             }
 
-            if (avgNumSpan) avgNumSpan.textContent = totalComments > 0 ? averageRating : "0.0";
+            if (avgNumSpan) avgNumSpan.textContent = totalComments > 0 ? averageRating : '0.0';
             if (totalCountSpan) totalCountSpan.textContent = totalComments;
 
             if (globalStarsContainer) {
                 let gStarsHTML = '';
-                const roundedAvg = Math.round(averageRating);
+                const roundedAvg = Math.round(parseFloat(averageRating));
                 for (let i = 1; i <= 5; i++) {
-                    gStarsHTML += i <= roundedAvg 
-                        ? '<i class="fa-solid fa-star" style="margin-right:2px; color:#ffaa00;"></i>' 
-                        : '<i class="fa-regular fa-star" style="margin-right:2px; color:#555;"></i>';
+                    if (i <= roundedAvg) {
+                        gStarsHTML += '<i class="fa-solid fa-star" style="margin-right:2px; color:#ffaa00;"></i>';
+                    } else {
+                        gStarsHTML += '<i class="fa-regular fa-star" style="margin-right:2px; color:#555;"></i>';
+                    }
                 }
                 globalStarsContainer.innerHTML = gStarsHTML;
             }
@@ -253,13 +401,12 @@ function fetchCommentsForVehicle(vehicleIndex) {
             }
 
             if (!data || !data.success || !data.comments || data.comments.length === 0) {
-                if (listContainer) {
-                    listContainer.innerHTML = `
-                        <div style="text-align:center; padding:60px 10px; opacity:0.4;">
-                            <i class="fa-regular fa-comments" style="font-size:32px; margin-bottom:12px; display:block; color:#ff2828;"></i>
-                            <p style="font-size:13px; margin:0; font-style:italic; color:#fff;">il n'y a pas encore d'avis sur ce modèle</p>
-                        </div>`;
-                }
+                const emptyMessage = `
+                    <div style="text-align:center; padding:60px 10px; opacity:0.4;">
+                        <i class="fa-regular fa-comments" style="font-size:32px; margin-bottom:12px; display:block; color:#ff2828;"></i>
+                        <p style="font-size:13px; margin:0; font-style:italic; color:#fff;">il n'y a pas encore d'avis sur ce modèle</p>
+                    </div>`;
+                if (listContainer) listContainer.innerHTML = emptyMessage;
                 if (sidePreview) {
                     sidePreview.innerHTML = '<p style="opacity:0.4; font-size:12px; font-style:italic; margin:0; color:#fff;">Aucun avis pour le moment.</p>';
                 }
@@ -270,19 +417,26 @@ function fetchCommentsForVehicle(vehicleIndex) {
             let previewHTML = '';
 
             data.comments.forEach((comment, index) => {
+                // Sécurité : échappement systématique de TOUT ce qui vient de l'API
+                const commentText = escapeHtml(comment.comment || '');
+                const prenom = escapeHtml(comment.prenom || 'Utilisateur');
+                const nom = comment.nom ? escapeHtml(comment.nom.charAt(0) + '.') : '';
+                const avatarUrl = escapeUrl(comment.avatar_url);
+                const authorName = `${prenom} ${nom}`.trim();
+
                 let starsHTML = '';
-                const ratingVal = parseInt(comment.rating) || 0;
+                const ratingVal = Math.min(5, Math.max(0, parseInt(comment.rating) || 0));
                 for (let i = 1; i <= 5; i++) {
-                    starsHTML += i <= ratingVal ? '<i class="fa-solid fa-star" style="color:#ffaa00;"></i>' : '<i class="fa-regular fa-star" style="color:#555;"></i>';
+                    if (i <= ratingVal) {
+                        starsHTML += '<i class="fa-solid fa-star" style="color:#ffaa00;"></i>';
+                    } else {
+                        starsHTML += '<i class="fa-regular fa-star" style="color:#555;"></i>';
+                    }
                 }
-                
-                const authorName = `${comment.prenom || 'Utilisateur'} ${comment.nom ? comment.nom.charAt(0) + '.' : ''}`;
-                const avatar = comment.avatar_url || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
-                const commentText = escapeHtml(comment.comment);
 
                 listHTML += `
                     <div class="review-card">
-                        <img src="${avatar}" class="review-avatar">
+                        <img src="${avatarUrl}" class="review-avatar" alt="Avatar de ${authorName}" loading="lazy">
                         <div class="review-content">
                             <div class="review-header">
                                 <span class="review-author">${authorName}</span>
@@ -308,48 +462,101 @@ function fetchCommentsForVehicle(vehicleIndex) {
             if (sidePreview) sidePreview.innerHTML = previewHTML;
         })
         .catch(err => {
-            console.error("Erreur lors de la récupération des avis :", err);
+            console.error('Erreur lors de la récupération des avis :', err);
+            if (listContainer) {
+                listContainer.innerHTML = `
+                    <div style="text-align:center; padding:60px 10px; opacity:0.4;">
+                        <p style="font-size:13px; margin:0; color:#ff2828;">Impossible de charger les avis.</p>
+                    </div>`;
+            }
         });
 }
 
+// =========================================================================
+// 10. FORMULAIRE D'AJOUT D'AVIS (AVEC CSRF ET VALIDATION)
+// =========================================================================
+
 const leaveReviewForm = document.getElementById('leave-review-form');
 if (leaveReviewForm) {
-    leaveReviewForm.addEventListener('submit', function(e) {
+    leaveReviewForm.addEventListener('submit', async function(e) {
         e.preventDefault();
-        const checkedStarInput = leaveReviewForm.querySelector('input[name="stars-qty"]:checked') || leaveReviewForm.querySelector('input[name="rating"]:checked');
-        const commentTextarea = document.getElementById('review-textarea');
 
+        // Vérifier que l'utilisateur est connecté
+        if (!AppState.isAuthenticated) {
+            alert('Vous devez être connecté pour laisser un avis.');
+            ouvrirModalConnexion();
+            return;
+        }
+
+        // Vérifier que le token CSRF est disponible
+        if (!AppState.csrfToken) {
+            const loaded = await fetchCsrfToken();
+            if (!loaded) {
+                alert('Erreur de sécurité. Rechargez la page.');
+                return;
+            }
+        }
+
+        const checkedStarInput = leaveReviewForm.querySelector(
+            'input[name="stars-qty"]:checked, input[name="rating"]:checked'
+        );
+        const commentTextarea = document.getElementById('review-textarea');
         if (!commentTextarea) return;
+
+        // Validation côté client
+        const commentText = commentTextarea.value.trim();
+        
+        if (commentText.length === 0) {
+            alert('Veuillez écrire un commentaire.');
+            commentTextarea.focus();
+            return;
+        }
+        
+        if (commentText.length > 2000) {
+            alert('Le commentaire est trop long. Maximum 2000 caractères.');
+            commentTextarea.focus();
+            return;
+        }
+
+        // Sécurisation : limiter la taille du commentaire envoyé
+        const safeComment = truncateText(commentText, 2000);
+        const rating = checkedStarInput ? Math.min(5, Math.max(1, parseInt(checkedStarInput.value) || 5)) : 5;
 
         const formData = new FormData();
         formData.append('action', 'add');
-        formData.append('vehicle_index', currentIndex);
-        formData.append('rating', checkedStarInput ? checkedStarInput.value : 5);
-        formData.append('comment', commentTextarea.value.trim());
+        formData.append('vehicle_index', AppState.currentIndex);
+        formData.append('rating', rating);
+        formData.append('comment', safeComment);
+        addCsrfToken(formData);
 
-        fetch('api/main.php?action=add', {
-            method: 'POST',
-            body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
+        try {
+            const data = await secureFetch('api/main.php', {
+                method: 'POST',
+                body: formData
+            });
+
             if (data.success) {
                 commentTextarea.value = '';
-                fetchCommentsForVehicle(currentIndex);
-                alert(data.message);
+                fetchCommentsForVehicle(AppState.currentIndex);
+                alert(data.message || 'Votre avis a été enregistré !');
             } else {
-                alert(data.message);
+                alert(data.message || 'Erreur lors de l\'envoi de l\'avis.');
+                // Si le token CSRF est invalide, en récupérer un nouveau
+                if (data.message && data.message.toLowerCase().includes('csrf')) {
+                    await fetchCsrfToken();
+                }
             }
-        })
-        .catch(() => {
-            alert("Impossible de joindre le serveur de télémétrie.");
-        });
+        } catch (err) {
+            console.error('Erreur:', err);
+            alert('Impossible de joindre le serveur.');
+        }
     });
 }
 
 // =========================================================================
-// 6. GESTION DES MODALES, ONGLETS ET PANNEAUX LATÉRAUX
+// 11. GESTION DES MODALES, ONGLETS ET PANNEAUX LATÉRAUX
 // =========================================================================
+
 const sidePanel = document.getElementById('side-panel');
 const openPanelBtn = document.getElementById('open-panel-btn') || document.querySelector('.open-panel-btn');
 const closePanelBtn = document.getElementById('close-panel-btn') || document.querySelector('.close-panel-btn');
@@ -377,6 +584,10 @@ const authModal = document.getElementById('auth-modal');
 const profileTrigger = document.getElementById('profile-trigger');
 const closeModalBtn = document.getElementById('close-modal-btn');
 
+function ouvrirModalConnexion() {
+    if (authModal) authModal.classList.add('active');
+}
+
 if (profileTrigger && authModal) {
     profileTrigger.addEventListener('click', () => {
         authModal.classList.add('active');
@@ -389,6 +600,16 @@ if (closeModalBtn && authModal) {
     });
 }
 
+// Fermeture de la modale en cliquant en dehors
+if (authModal) {
+    authModal.addEventListener('click', (e) => {
+        if (e.target === authModal) {
+            authModal.classList.remove('active');
+        }
+    });
+}
+
+// Gestion des onglets dans la modale d'auth
 const authFormTabs = document.querySelectorAll('#auth-modal .auth-tabs .tab-btn');
 const authFormContents = document.querySelectorAll('#auth-modal .auth-form-content');
 
@@ -396,7 +617,6 @@ authFormTabs.forEach(tab => {
     tab.addEventListener('click', () => {
         authFormTabs.forEach(t => t.classList.remove('active'));
         authFormContents.forEach(c => c.classList.remove('active'));
-        
         tab.classList.add('active');
         const targetForm = document.getElementById(tab.dataset.tab);
         if (targetForm) targetForm.classList.add('active');
@@ -404,8 +624,9 @@ authFormTabs.forEach(tab => {
 });
 
 // =========================================================================
-// 7. ROBUSTESSE DU MOT DE PASSE (VÉRIFICATION EN TEMPS RÉEL)
+// 12. ROBUSTESSE DU MOT DE PASSE (VÉRIFICATION EN TEMPS RÉEL)
 // =========================================================================
+
 const registerPasswordInput = document.getElementById('register-password');
 const strengthContainer = document.getElementById('password-strength-container');
 const strengthBarFill = document.getElementById('strength-bar-fill');
@@ -414,115 +635,297 @@ const strengthText = document.getElementById('strength-text');
 if (registerPasswordInput) {
     registerPasswordInput.addEventListener('input', () => {
         const password = registerPasswordInput.value;
-        let score = 0;
-
-        if (password.length >= 6) score++;
-        if (password.length >= 10) score++;
-        if (/[A-Z]/.test(password)) score++;
-        if (/[0-9]/.test(password)) score++;
-        if (/[^A-Za-z0-9]/.test(password)) score++;
+        const score = getPasswordStrength(password);
 
         if (password.length === 0) {
             if (strengthContainer) strengthContainer.style.display = 'none';
-            if (strengthBarFill) { strengthBarFill.style.width = '0%'; strengthBarFill.style.backgroundColor = 'transparent'; }
+            if (strengthBarFill) {
+                strengthBarFill.style.width = '0%';
+                strengthBarFill.style.backgroundColor = 'transparent';
+            }
             if (strengthText) strengthText.innerHTML = '';
         } else {
             if (strengthContainer) strengthContainer.style.display = 'block';
 
             if (score <= 2) {
-                if (strengthBarFill) { strengthBarFill.style.width = '33%'; strengthBarFill.style.backgroundColor = '#ff4d4d'; }
-                if (strengthText) strengthText.innerHTML = '<span style="color:#ff4d4d;">Sécurité : Faible / Insuffisante 🔴</span>';
+                if (strengthBarFill) {
+                    strengthBarFill.style.width = '33%';
+                    strengthBarFill.style.backgroundColor = '#ff4d4d';
+                }
+                if (strengthText) {
+                    strengthText.innerHTML = '<span style="color:#ff4d4d;">Sécurité : Faible</span>';
+                }
             } else if (score <= 4) {
-                if (strengthBarFill) { strengthBarFill.style.width = '66%'; strengthBarFill.style.backgroundColor = '#ffaa00'; }
-                if (strengthText) strengthText.innerHTML = '<span style="color:#ffaa00;">Sécurité : Moyenne 🟡</span>';
+                if (strengthBarFill) {
+                    strengthBarFill.style.width = '66%';
+                    strengthBarFill.style.backgroundColor = '#ffaa00';
+                }
+                if (strengthText) {
+                    strengthText.innerHTML = '<span style="color:#ffaa00;">Sécurité : Moyenne</span>';
+                }
             } else {
-                if (strengthBarFill) { strengthBarFill.style.width = '100%'; strengthBarFill.style.backgroundColor = '#00cc66'; }
-                if (strengthText) strengthText.innerHTML = '<span style="color:#00cc66;">Sécurité : Maximale / Forte 🟢</span>';
+                if (strengthBarFill) {
+                    strengthBarFill.style.width = '100%';
+                    strengthBarFill.style.backgroundColor = '#00cc66';
+                }
+                if (strengthText) {
+                    strengthText.innerHTML = '<span style="color:#00cc66;">Sécurité : Forte</span>';
+                }
             }
         }
     });
 }
 
+// =========================================================================
+// 13. MISE À JOUR DU PANNEAU LATÉRAL
+// =========================================================================
+
 function updateSidePanelContent(data) {
     const specsGrid = document.getElementById('panel-specs-grid');
     
-    if (specsGrid) {
+    if (specsGrid && data && data.techDetails) {
+        // Les données viennent du tableau carData (source interne) -> innerHTML acceptable
         specsGrid.innerHTML = `
-            <div class="spec-item"><div><span>Moteur</span><p>${data.techDetails.moteur}</p></div></div>
-            <div class="spec-item"><div><span>Vitesse max</span><p>${data.techDetails.vitesse}</p></div></div>
-            <div class="spec-item"><div><span>Puissance</span><p>${data.techDetails.puissance}</p></div></div>
-            <div class="spec-item"><div><span>0-100 km/h</span><p>${data.techDetails.chrono}</p></div></div>
+            <div class="spec-item">
+                <div><span>Moteur</span><p>${escapeHtml(data.techDetails.moteur || '')}</p></div>
+            </div>
+            <div class="spec-item">
+                <div><span>Vitesse max</span><p>${escapeHtml(data.techDetails.vitesse || '')}</p></div>
+            </div>
+            <div class="spec-item">
+                <div><span>Puissance</span><p>${escapeHtml(data.techDetails.puissance || '')}</p></div>
+            </div>
+            <div class="spec-item">
+                <div><span>0-100 km/h</span><p>${escapeHtml(data.techDetails.chrono || '')}</p></div>
+            </div>
         `;
     }
 }
 
 // =========================================================================
-// 8. FORMULAIRES D'AUTHENTIFICATION AJAX (AVEC VALIDATION RECAPTCHA)
+// 14. FORMULAIRES D'AUTHENTIFICATION (AVEC CSRF ET VALIDATION)
 // =========================================================================
+
+// --- CONNEXION ---
 const loginForm = document.getElementById('login-form');
 if (loginForm) {
-    loginForm.addEventListener('submit', function(e) {
+    loginForm.addEventListener('submit', async function(e) {
         e.preventDefault();
+
+        const emailInput = loginForm.querySelector('input[name="email"]');
+        const passwordInput = loginForm.querySelector('input[name="password"]');
+
+        // Validation côté client
+        const email = emailInput ? emailInput.value.trim() : '';
+        const password = passwordInput ? passwordInput.value : '';
+
+        if (!email || !password) {
+            alert('Veuillez remplir tous les champs.');
+            return;
+        }
+
+        if (!isValidEmail(email)) {
+            alert('Format d\'email invalide.');
+            return;
+        }
+
+        // Récupérer le token CSRF si nécessaire
+        if (!AppState.csrfToken) {
+            await fetchCsrfToken();
+        }
+
         const formData = new FormData(loginForm);
         formData.append('action', 'login');
-        fetch('api/main.php', { method: 'POST', body: formData })
-            .then(res => res.json())
-            .then(data => data.success ? window.location.reload() : alert(data.message));
+        addCsrfToken(formData);
+
+        try {
+            const data = await secureFetch('api/main.php', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (data.success) {
+                // Mettre à jour le token CSRF retourné par le serveur
+                if (data.csrf_token) {
+                    AppState.csrfToken = data.csrf_token;
+                }
+                AppState.isAuthenticated = true;
+                window.location.reload();
+            } else {
+                alert(data.message || 'Identifiants incorrects.');
+            }
+        } catch (err) {
+            console.error('Erreur:', err);
+            alert('Erreur de connexion au serveur.');
+        }
     });
 }
 
+// --- INSCRIPTION ---
 const registerForm = document.getElementById('register-form');
 if (registerForm) {
-    registerForm.addEventListener('submit', function(e) {
+    registerForm.addEventListener('submit', async function(e) {
         e.preventDefault();
 
-        if (typeof grecaptcha !== 'undefined') {
+        const prenomInput = registerForm.querySelector('input[name="prenom"]');
+        const nomInput = registerForm.querySelector('input[name="nom"]');
+        const emailInput = registerForm.querySelector('input[name="email"]');
+        const passwordInput = registerForm.querySelector('input[name="password"]');
+
+        // Validation côté client
+        const prenom = prenomInput ? prenomInput.value.trim() : '';
+        const nom = nomInput ? nomInput.value.trim() : '';
+        const email = emailInput ? emailInput.value.trim() : '';
+        const password = passwordInput ? passwordInput.value : '';
+
+        if (!prenom || !nom || !email || !password) {
+            alert('Tous les champs sont requis.');
+            return;
+        }
+
+        if (prenom.length > 50) {
+            alert('Le prénom ne peut pas dépasser 50 caractères.');
+            return;
+        }
+
+        if (nom.length > 50) {
+            alert('Le nom ne peut pas dépasser 50 caractères.');
+            return;
+        }
+
+        if (!isValidEmail(email)) {
+            alert('Format d\'email invalide.');
+            return;
+        }
+
+        if (password.length < 8) {
+            alert('Le mot de passe doit contenir au moins 8 caractères.');
+            return;
+        }
+
+        // Vérification reCAPTCHA
+        if (typeof grecaptcha !== 'undefined' && typeof grecaptcha.getResponse === 'function') {
             const recaptchaResponse = grecaptcha.getResponse();
-            if (recaptchaResponse.length === 0) {
-                alert("Veuillez cocher la case reCAPTCHA pour valider la protection anti-bot.");
+            if (!recaptchaResponse || recaptchaResponse.length === 0) {
+                alert('Veuillez cocher la case reCAPTCHA pour valider la protection anti-bot.');
                 return;
             }
         }
 
+        // Récupérer le token CSRF si nécessaire
+        if (!AppState.csrfToken) {
+            await fetchCsrfToken();
+        }
+
+        // Sécuriser les champs texte (limiter la taille)
+        const safePrenom = truncateText(prenom, 50);
+        const safeNom = truncateText(nom, 50);
+
         const formData = new FormData(registerForm);
+        formData.set('prenom', safePrenom);
+        formData.set('nom', safeNom);
         formData.append('action', 'register');
-        fetch('api/main.php', { method: 'POST', body: formData })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.reload();
-                } else {
-                    alert(data.message);
-                }
+        addCsrfToken(formData);
+
+        try {
+            const data = await secureFetch('api/main.php', {
+                method: 'POST',
+                body: formData
             });
+
+            if (data.success) {
+                if (data.csrf_token) {
+                    AppState.csrfToken = data.csrf_token;
+                }
+                AppState.isAuthenticated = true;
+                window.location.reload();
+            } else {
+                alert(data.message || 'Erreur lors de la création du compte.');
+            }
+        } catch (err) {
+            console.error('Erreur:', err);
+            alert('Erreur de connexion au serveur.');
+        }
     });
 }
 
+// --- DÉCONNEXION ---
 const logoutBtn = document.getElementById('logout-btn');
 if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
+    logoutBtn.addEventListener('click', async function() {
         const formData = new FormData();
         formData.append('action', 'logout');
-        fetch('api/main.php', { method: 'POST', body: formData }).then(() => window.location.reload());
+        addCsrfToken(formData);
+
+        try {
+            await secureFetch('api/main.php', {
+                method: 'POST',
+                body: formData
+            });
+            AppState.isAuthenticated = false;
+            AppState.csrfToken = null;
+            window.location.reload();
+        } catch (err) {
+            console.error('Erreur:', err);
+            window.location.reload();
+        }
     });
 }
 
-// Contrôle Audio
+// =========================================================================
+// 15. CONTRÔLE AUDIO
+// =========================================================================
+
 const playSoundBtn = document.getElementById('play-sound-btn');
 if (playSoundBtn) {
-    playSoundBtn.addEventListener('click', () => {
-        if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
-        currentAudio = new Audio(carData[currentIndex].sound);
-        currentAudio.volume = 0.2;
-        currentAudio.play();
-    });
+    playSoundBtn.addEventListener('click', playVehicleSound);
 }
 
-function animate() { 
-    requestAnimationFrame(animate); 
-    if (controls) controls.update(); 
-    if (renderer && scene && camera) renderer.render(scene, camera); 
+// =========================================================================
+// 16. GESTION DU REDIMENSIONNEMENT
+// =========================================================================
+
+window.addEventListener('resize', () => {
+    if (container && renderer) {
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        renderer.setSize(width, height);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+    }
+});
+
+// =========================================================================
+// 17. ANIMATION THREE.JS
+// =========================================================================
+
+function animate() {
+    requestAnimationFrame(animate);
+    if (controls) controls.update();
+    if (renderer && scene && camera) renderer.render(scene, camera);
 }
 
-// Démarrage de l'application
-changeVehicle(0).then(() => animate());
+// =========================================================================
+// 18. INITIALISATION DE L'APPLICATION
+// =========================================================================
+
+async function initApp() {
+    // Récupérer le token CSRF au démarrage
+    await fetchCsrfToken();
+
+    // Vérifier si l'utilisateur est connecté (vérification via un appel API ou état initial)
+    if (document.body.dataset.authenticated === 'true') {
+        AppState.isAuthenticated = true;
+    }
+
+    // Charger le premier véhicule et démarrer l'animation
+    await changeVehicle(0);
+    animate();
+}
+
+// Démarrer l'application quand le DOM est prêt
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}

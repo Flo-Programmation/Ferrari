@@ -1,4 +1,5 @@
 <?php
+// includes/header.php
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -37,7 +38,8 @@ if (session_status() === PHP_SESSION_NONE) {
         <div class="nav-right" style="display: flex; align-items: center; gap: 20px;">
             <div id="profile-trigger" class="profile-icon-container" style="cursor: pointer;">
                 <?php if (isset($_SESSION['user'])): ?>
-                    <img src="<?php echo htmlspecialchars($_SESSION['user']['avatar_url']); ?>" alt="Avatar" class="user-avatar-nav">
+                    <?php $nav_avatar = !empty($_SESSION['user']['avatar_url']) ? $_SESSION['user']['avatar_url'] : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150'; ?>
+                    <img src="<?php echo htmlspecialchars($nav_avatar); ?>" alt="Avatar" class="user-avatar-nav" style="height: 35px; width: 35px; border-radius: 50%; object-fit: cover;">
                 <?php else: ?>
                     <i class="fa-solid fa-user"></i>
                 <?php endif; ?>
@@ -108,15 +110,31 @@ if (session_status() === PHP_SESSION_NONE) {
                 </div>
             <?php else: ?>
                 <div id="profile-info" class="profile-card">
-                    <img src="<?php echo htmlspecialchars($_SESSION['user']['avatar_url']); ?>" alt="Avatar" class="profile-large-avatar">
+                    <?php $profile_avatar = !empty($_SESSION['user']['avatar_url']) ? $_SESSION['user']['avatar_url'] : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150'; ?>
+                    <img src="<?php echo htmlspecialchars($profile_avatar); ?>" alt="Avatar" class="profile-large-avatar">
+                    
                     <h2><?php echo htmlspecialchars($_SESSION['user']['prenom'] . ' ' . $_SESSION['user']['nom']); ?></h2>
                     <p class="profile-email"><i class="fa-solid fa-envelope"></i> <?php echo htmlspecialchars($_SESSION['user']['email']); ?></p>
-                    <p class="profile-role"><i class="fa-solid fa-shield-halved"></i> Statut : <span><?php echo htmlspecialchars($_SESSION['user']['role']); ?></span></p>
+                    
+                    <p class="profile-role">
+                        <i class="fa-solid fa-shield-halved"></i> Statut : 
+                        <span>
+                            <?php 
+                            if ($_SESSION['user']['role'] === 'admin') {
+                                echo 'Administrateur';
+                            } else {
+                                echo 'Pilote de la Scuderia';
+                            }
+                            ?>
+                        </span>
+                    </p>
                     
                     <hr class="profile-hr">
                     
                     <?php if ($_SESSION['user']['role'] === 'admin'): ?>
-                        <a href="admin/index.php" class="btn-admin-panel"><i class="fa-solid fa-gauge-high"></i> Panel Administration</a>
+                        <a href="admin/index.php" class="btn-admin-panel" style="display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; margin-bottom: 10px;">
+                            <i class="fa-solid fa-gauge-high"></i> Panel Administration
+                        </a>
                     <?php endif; ?>
                     
                     <button id="logout-btn" class="btn-logout"><i class="fa-solid fa-power-off"></i> Déconnexion</button>

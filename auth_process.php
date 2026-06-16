@@ -1,16 +1,20 @@
 <?php
-// auth_process.php (À la racine de Ferrari-Vitrine/)
+// auth_process.php (À la racine du projet)
 
 error_reporting(E_ALL);
-ini_set('display_errors', 0); // Cache les avertissements système pour garder le JSON propre
+ini_set('display_errors', 0); // Empêche les avertissements de corrompre le JSON
 
 if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params([
+        'path' => '/',
+        'secure' => false, // Mets à true si tu es en https://
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
     session_start();
 }
 
 header('Content-Type: application/json; charset=utf-8');
-
-// Inclusion de la connexion globale
 require_once 'config/database.php'; 
 
 $response = [
@@ -37,7 +41,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         try {
-            // CORRECTION : Recherche dans la table "users"
             $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
             $stmt->execute([$email]);
             if ($stmt->fetch()) {
@@ -46,15 +49,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
-            // Hachage sécurisé
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
             $avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150";
 
-            // CORRECTION : Insertion dans la table "users" avec le rôle par défaut "user"
             $insert = $pdo->prepare("INSERT INTO users (prenom, nom, email, password, avatar_url, role) VALUES (?, ?, ?, ?, ?, 'user')");
             $insert->execute([$prenom, $nom, $email, $hashedPassword, $avatarUrl]);
 
-            // Hydratation de la session PHP
             $_SESSION['user'] = [
                 'id'         => $pdo->lastInsertId(),
                 'prenom'     => $prenom,
@@ -80,22 +80,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password = $_POST['password'] ?? '';
 
         try {
-            // CORRECTION : Recherche dans la table "users"
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+            $stmt = $pdo->prepare("SELECT id, prenom, nom, email, password, avatar_url, role FROM users WHERE email = ?");
             $stmt->execute([$email]);
             $user = $stmt->fetch();
 
             if ($user && password_verify($password, $user['password'])) {
+                
+                // Nettoyage strict du rôle (minuscules et sans espaces cachés)
+                $userRole = isset($user['role']) ? strtolower(trim($user['role'])) : 'user';
+
                 $_SESSION['user'] = [
                     'id'         => $user['id'],
                     'prenom'     => $user['prenom'],
                     'nom'        => $user['nom'],
                     'email'      => $user['email'],
                     'avatar_url' => $user['avatar_url'] ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
-                    'role'       => $user['role'] ?? 'user'
+                    'role'       => $userRole
                 ];
+                
                 $response['success'] = true;
                 $response['message'] = "Connexion réussie !";
+                $response['role']    = $userRole; // Transmis au JS pour redirection
+
             } else {
                 $response['message'] = "Identifiants ou mot de passe incorrects.";
             }

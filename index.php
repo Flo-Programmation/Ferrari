@@ -1,7 +1,18 @@
 <?php
+// On s'assure d'avoir la session ouverte pour lire l'état de connexion
 if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.cookie_httponly', 1);
+    ini_set('session.cookie_samesite', 'Strict');
     session_start();
 }
+
+$isAuthenticated = isset($_SESSION['user']) ? 'true' : 'false';
+$user_prenom = $_SESSION['user']['prenom'] ?? '';
+$user_nom = $_SESSION['user']['nom'] ?? '';
+$user_email = $_SESSION['user']['email'] ?? '';
+
+// Génération dynamique et sécurisée de l'avatar unique de l'utilisateur connecté via l'API DiceBear
+$user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($user_prenom . ' ' . $user_nom);
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -11,17 +22,18 @@ if (session_status() === PHP_SESSION_NONE) {
     <title>Scuderia Ferrari Exhibition</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-    
+
     <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
         }
+    }
     </script>
+    
     <style>
         .section-modeles, .section-contact, .site-footer { position: relative; z-index: 1; }
         .side-panel { background: #111111 !important; box-shadow: -5px 0 30px rgba(0, 0, 0, 0.8); z-index: 9999 !important; display: flex; flex-direction: column; overflow: hidden; }
@@ -29,7 +41,7 @@ if (session_status() === PHP_SESSION_NONE) {
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); display: flex; justify-content: center; align-items: center; z-index: 10000; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
         .modal-overlay.active { opacity: 1; pointer-events: auto; }
         .modal-container { background: #141414; border: 1px solid rgba(255, 255, 255, 0.1); padding: 35px; border-radius: 12px; width: 90%; max-width: 550px; position: relative; color: #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
-        .close-btn { top: 15px; right: 20px; background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; opacity: 0.6; line-height: 1; }
+        .close-btn { background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; opacity: 0.6; line-height: 1; }
         .close-btn:hover { opacity: 1; color: #ff2828; }
         .auth-tabs { display: flex; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.1); }
         .auth-tabs .tab-btn { flex: 1; background: none; border: none; color: rgba(255,255,255,0.4); padding: 12px; cursor: pointer; font-weight: bold; font-size: 15px; transition: all 0.2s; }
@@ -46,16 +58,32 @@ if (session_status() === PHP_SESSION_NONE) {
         .btn-submit { width: 100%; padding: 14px; background: #ff2828; border: none; color: #fff; font-weight: bold; border-radius: 6px; cursor: pointer; text-transform: uppercase; font-size: 14px; margin-top: 10px; transition: background 0.2s; }
         .btn-submit:hover { background: #cc1b1b; }
         .auth-error { color: #ff4d4d; font-size: 13px; text-align: center; margin-top: 12px; font-weight: 500; }
+        
+        /* Profil de l'utilisateur */
         .profile-card { text-align: center; }
-        .profile-large-avatar { width: 85px; height: 85px; border-radius: 50%; border: 2px solid #ff2828; object-fit: cover; margin-bottom: 15px; }
+        .profile-large-avatar { width: 85px; height: 85px; border-radius: 50%; border: 2px solid #ff2828; object-fit: cover; margin-bottom: 15px; background: rgba(255,255,255,0.1); }
         .profile-card h2 { font-size: 22px; margin-bottom: 5px; }
         .profile-email, .profile-role { margin: 5px 0; opacity: 0.8; font-size: 14px; }
         .profile-role span { font-weight: bold; color: #ff2828; }
         .btn-logout { width: 100%; padding: 12px; background: transparent; border: 1px solid #ff4d4d; color: #ff4d4d; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 20px; transition: all 0.2s; }
         .btn-logout:hover { background: #ff4d4d; color: #fff; }
 
+        /* Zone d'activité et d'historique des avis dans le profil */
+        .user-activity-section { margin-top: 25px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 15px; text-align: left; }
+        .user-activity-section h3 { font-size: 13px; color: #ff2828; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
+        .user-history-list { max-height: 200px; overflow-y: auto; background: #0c0c0c; border: 1px solid #222; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+        .user-history-item { background: #161616; padding: 10px; border-radius: 6px; border-left: 3px solid #ff2828; }
+        .history-item-header { display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; margin-bottom: 4px; }
+        .history-car-target { color: #fff; text-transform: uppercase; }
+        .history-stars { color: #ffaa00; }
+        .history-comment-text { font-size: 12px; color: #ccc; margin: 4px 0 8px 0; line-height: 1.4; word-break: break-word; }
+        .history-item-actions { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+        .history-date { color: #555; }
+        .btn-action-delete-small { background: none; border: none; color: #ff4d4d; cursor: pointer; font-size: 11px; font-weight: 500; padding: 0; }
+        .btn-action-delete-small:hover { text-decoration: underline; }
+
         /* Styles de structure des commentaires */
-        .review-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; gap: 15px; }
+        .review-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; gap: 15px; position: relative; }
         .review-avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.2); }
         .review-content { flex: 1; }
         .review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -63,6 +91,26 @@ if (session_status() === PHP_SESSION_NONE) {
         .review-stars { color: #ffaa00; font-size: 12px; }
         .review-text { color: rgba(255,255,255,0.7); font-size: 13px; line-height: 1.4; }
         .review-date { font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 5px; display: block; }
+        
+        /* Boutons d'actions Modifier / Supprimer sur les avis du modèle */
+        .comment-actions { display: flex; gap: 12px; margin-top: 10px; justify-content: flex-end; border-top: 1px solid rgba(255,255,255,0.02); padding-top: 8px; }
+        .btn-action-edit, .btn-action-delete { background: none; border: none; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-weight: 500; transition: color 0.2s; color: #888; }
+        .btn-action-edit:hover { color: #00cc66; }
+        .btn-action-delete:hover { color: #ff2828; }
+
+        /* Formulaire d'édition dynamique intégré dans la carte d'avis */
+        .edit-comment-box { background: #111; padding: 10px; border-radius: 6px; margin-top: 8px; border: 1px solid #333; }
+        .edit-textarea { width: 100%; height: 60px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 8px; font-size: 13px; resize: none; outline: none; box-sizing: border-box; }
+        .edit-textarea:focus { border-color: #ff2828; }
+        .edit-rating-selection { margin: 8px 0; font-size: 12px; display: flex; align-items: center; gap: 8px; }
+        .edit-select { background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 3px 6px; }
+        .edit-box-buttons { display: flex; justify-content: flex-end; gap: 8px; }
+        .edit-box-buttons button { padding: 5px 12px; font-size: 12px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; }
+        .btn-save { background: #ff2828; color: #fff; }
+        .btn-save:hover { background: #cc1b1b; }
+        .btn-cancel { background: #333; color: #ccc; }
+        .btn-cancel:hover { background: #444; }
+
         .auth-notice-box { text-align: center; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); padding: 25px 15px; border-radius: 8px; margin-top: 20px; }
         .auth-notice-box p { font-size: 13px; opacity: 0.6; margin-bottom: 12px; }
         .btn-trigger-login-view { background: transparent; border: 1px solid #ff2828; color: #ff2828; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; text-transform: uppercase; transition: all 0.2s; }
@@ -80,7 +128,6 @@ if (session_status() === PHP_SESSION_NONE) {
         .preview-review-stars { color: #ffaa00; font-size: 10px; }
         .preview-review-text { font-size: 12px; color: rgba(255, 255, 255, 0.7); line-height: 1.4; white-space: normal; overflow-wrap: break-word; word-wrap: break-word; word-break: break-word; }
 
-        /* Styles pour la distribution des étoiles (Premium design) */
         .distrib-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 5px; }
         .distrib-label { width: 22px; display: flex; align-items: center; gap: 3px; opacity: 0.7; color: #fff; }
         .distrib-bar-bg { flex: 1; height: 5px; background: rgba(255, 255, 255, 0.08); border-radius: 3px; overflow: hidden; }
@@ -88,7 +135,7 @@ if (session_status() === PHP_SESSION_NONE) {
         .distrib-percent { width: 32px; text-align: right; opacity: 0.5; font-size: 11px; color: #fff; }
     </style>
 </head>
-<body>
+<body data-authenticated="<?php echo $isAuthenticated; ?>">
 
     <video src="assets/videos/video.mp4" autoplay loop muted playsinline id="bg-video"></video>
 
@@ -102,10 +149,10 @@ if (session_status() === PHP_SESSION_NONE) {
         <div class="nav-right" style="display: flex; align-items: center;">
             <a href="#modeles" title="Modèles"><i class="fa-solid fa-car"></i></a>
             <a href="#contact" title="Contact"><i class="fa-solid fa-envelope"></i></a>
-            
-            <div id="profile-trigger" style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 35px; height: 35px; border-radius: 50%; margin-left: 15px; background: rgba(255,255,255,0.1);">
+
+            <div id="profile-trigger" style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 35px; height: 35px; border-radius: 50%; margin-left: 15px; background: rgba(255,255,255,0.1); overflow: hidden;">
                 <?php if (isset($_SESSION['user'])): ?>
-                    <img src="<?php echo htmlspecialchars($_SESSION['user']['avatar_url']); ?>" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                    <img src="<?php echo htmlspecialchars($user_avatar); ?>" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
                 <?php else: ?>
                     <i class="fa-solid fa-user" style="color: #fff;"></i>
                 <?php endif; ?>
@@ -138,7 +185,7 @@ if (session_status() === PHP_SESSION_NONE) {
         <div class="ui-panel bottom-right-panel">
             <h3 class="panel-title">Fiche Technique</h3>
             <p id="car-desc">Inspirée des mythiques barquettes de compétition des années 1960.</p>
-            
+
             <button id="play-sound-btn" class="rounded-btn sound-btn">
                 <i class="fa-solid fa-volume-high"></i> Écouter le moteur
             </button>
@@ -162,57 +209,56 @@ if (session_status() === PHP_SESSION_NONE) {
             <div id="tab-specs" class="tab-pane active">
                 <div id="panel-specs-grid" class="specs-grid"></div>
                 <h3 class="telemetry-title">Évaluation Globale</h3>
+                
                 <div class="rating-overview-wrapper" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); padding: 18px; border-radius: 8px; display: flex; gap: 20px; align-items: center; margin-bottom: 25px;">
                     <div class="rating-global-box" style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.08); padding-right: 10px;">
                         <h1 style="font-size: 46px; margin: 0; font-weight: 800; line-height: 1;"><span id="average-rating-num" style="color: #fff;">0.0</span><span style="font-size: 18px; opacity: 0.5; font-weight: normal;">/5</span></h1>
                         <div id="global-stars-stars" style="color: #ffaa00; margin: 8px 0 4px 0; font-size: 11px;"></div>
                         <p style="font-size: 11px; opacity: 0.5; margin: 0;">Basé sur <span id="total-reviews-count">0</span> avis</p>
                     </div>
-                    
-                    <div class="rating-stars-distribution" id="stars-distribution-container" style="flex: 1.4; display: flex; flex-direction: column; gap: 2px;">
-                        </div>
+                    <div class="rating-stars-distribution" id="stars-distribution-container" style="flex: 1.4; display: flex; flex-direction: column; gap: 2px;"></div>
                 </div>
 
                 <h3 class="telemetry-title">Aperçu des Avis</h3>
                 <div id="reviews-side-preview" class="reviews-preview-box"></div>
             </div>
 
-            <div id="tab-reviews" class="tab-pane">
+            <div id="tab-reviews" class="tab-pane" style="display: none;">
                 <div id="reviews-list-container" class="reviews-list"></div>
 
                 <div class="add-review-section" style="margin-top: 30px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 25px;">
                     <h3 class="telemetry-title">Laisser un avis</h3>
-                    
-                    <?php if (isset($_SESSION['user'])): ?>
-                        <form id="leave-review-form" class="custom-review-form" onsubmit="event.preventDefault();">
-                            <input type="hidden" name="action" value="add">
-                            <input type="hidden" id="review-vehicle-index" name="vehicle_index" value="0">
 
-                            <div class="form-row-split">
-                                <div class="star-rating-input-container">
-                                    <span class="rating-label">Note :</span>
-                                    <div class="rating-stars-select">
-                                        <input type="radio" id="star-5" name="rating" value="5" checked><label for="star-5"><i class="fa-solid fa-star"></i></label>
-                                        <input type="radio" id="star-4" name="rating" value="4"><label for="star-4"><i class="fa-solid fa-star"></i></label>
-                                        <input type="radio" id="star-3" name="rating" value="3"><label for="star-3"><i class="fa-solid fa-star"></i></label>
-                                        <input type="radio" id="star-2" name="rating" value="2"><label for="star-2"><i class="fa-solid fa-star"></i></label>
-                                        <input type="radio" id="star-1" name="rating" value="1"><label for="star-1"><i class="fa-solid fa-star"></i></label>
-                                    </div>
+                    <?php if (isset($_SESSION['user'])): ?>
+                    <form id="leave-review-form" class="custom-review-form" onsubmit="event.preventDefault();">
+                        <input type="hidden" name="action" value="add">
+                        <input type="hidden" id="review-vehicle-index" name="vehicle_index" value="0">
+
+                        <div class="form-row-split">
+                            <div class="star-rating-input-container">
+                                <span class="rating-label">Note :</span>
+                                <div class="rating-stars-select">
+                                    <input type="radio" id="star-5" name="rating" value="5" checked><label for="star-5"><i class="fa-solid fa-star"></i></label>
+                                    <input type="radio" id="star-4" name="rating" value="4"><label for="star-4"><i class="fa-solid fa-star"></i></label>
+                                    <input type="radio" id="star-3" name="rating" value="3"><label for="star-3"><i class="fa-solid fa-star"></i></label>
+                                    <input type="radio" id="star-2" name="rating" value="2"><label for="star-2"><i class="fa-solid fa-star"></i></label>
+                                    <input type="radio" id="star-1" name="rating" value="1"><label for="star-1"><i class="fa-solid fa-star"></i></label>
                                 </div>
                             </div>
-                            <div class="review-input-box textarea-box">
-                                <i class="fa-solid fa-pen"></i>
-                                <textarea id="review-textarea" name="comment" placeholder="Partagez votre retour d'expérience sur ce modèle..." rows="3" required></textarea>
-                            </div>
-                            <button type="submit" class="btn-submit-review">
-                                Soumettre l'avis <i class="fa-solid fa-paper-plane"></i>
-                            </button>
-                        </form>
-                    <?php else: ?>
-                        <div class="auth-notice-box">
-                            <p>Vous devez être membre de la Scuderia pour publier un avis technique sur ce modèle.</p>
-                            <button id="trigger-login-from-reviews" class="btn-trigger-login-view">Se connecter / S'inscrire</button>
                         </div>
+                        <div class="review-input-box textarea-box">
+                            <i class="fa-solid fa-pen"></i>
+                            <textarea id="review-textarea" name="comment" placeholder="Partagez votre retour d'expérience sur ce modèle..." rows="3" required></textarea>
+                        </div>
+                        <button type="submit" class="btn-submit-review">
+                            Soumettre l'avis <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </form>
+                    <?php else: ?>
+                    <div class="auth-notice-box">
+                        <p>Vous devez être membre de la Scuderia pour publier un avis technique sur ce modèle.</p>
+                        <button id="trigger-login-from-reviews" class="btn-trigger-login-view">Se connecter / S'inscrire</button>
+                    </div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -221,14 +267,14 @@ if (session_status() === PHP_SESSION_NONE) {
 
     <div id="auth-modal" class="modal-overlay">
         <div class="modal-container">
-            <button id="close-modal-btn" class="close-btn">&times;</button>
-            
+            <button id="close-modal-btn" class="close-btn" style="position: absolute; top: 15px; right: 20px;">&times;</button>
+
             <?php if (!isset($_SESSION['user'])): ?>
                 <div class="auth-tabs">
                     <button class="tab-btn active" data-tab="login-form">Connexion</button>
                     <button class="tab-btn" data-tab="register-form">Inscription</button>
                 </div>
-                
+
                 <form id="login-form" class="auth-form-content active">
                     <h3>Connexion Pilote</h3>
                     <div class="input-group">
@@ -277,10 +323,27 @@ if (session_status() === PHP_SESSION_NONE) {
                 </form>
             <?php else: ?>
                 <div id="profile-info" class="profile-card">
-                    <img src="<?php echo htmlspecialchars($_SESSION['user']['avatar_url']); ?>" alt="Avatar" class="profile-large-avatar">
-                    <h2><?php echo htmlspecialchars($_SESSION['user']['prenom'] . ' ' . $_SESSION['user']['nom']); ?></h2>
-                    <p class="profile-email"><i class="fa-solid fa-envelope"></i> <?php echo htmlspecialchars($_SESSION['user']['email']); ?></p>
+                    <img src="<?php echo htmlspecialchars($user_avatar, ENT_QUOTES, 'UTF-8'); ?>" alt="Avatar" class="profile-large-avatar">
+                    <h2><?php echo htmlspecialchars($user_prenom . ' ' . $user_nom); ?></h2>
+                    <p class="profile-email"><i class="fa-solid fa-envelope"></i> <?php echo htmlspecialchars($user_email); ?></p>
                     <p class="profile-role"><i class="fa-solid fa-shield-halved"></i> Statut : <span><?php echo htmlspecialchars($_SESSION['user']['role'] ?? 'Membre'); ?></span></p>
+                    
+                    <div class="user-activity-section">
+                        <h3><i class="fa-regular fa-comments"></i> Mes avis publiés</h3>
+                        <div class="profile-reviews-list" id="user-reviews-container" style="max-height: 200px; overflow-y: auto; background: #0c0c0c; border: 1px solid #222; border-radius: 8px; padding: 10px;">
+                            <p style="font-size:12px; font-style:italic; text-align:center; opacity:0.5; color:#fff;">Chargement de votre activité...</p>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; text-align: left;">
+                        <h4 style="color:#fff; font-size:12px; margin-bottom:8px;">Sécurité du compte</h4>
+                        <form id="update-password-form" style="display:flex; flex-direction:column; gap:6px;">
+                            <input type="password" name="current_password" placeholder="Mot de passe actuel" style="background:rgba(0,0,0,0.4); border:1px solid #444; color:#fff; padding:6px; font-size:11px; border-radius:4px;" required>
+                            <input type="password" name="new_password" placeholder="Nouveau mot de passe" style="background:rgba(0,0,0,0.4); border:1px solid #444; color:#fff; padding:6px; font-size:11px; border-radius:4px;" required>
+                            <button type="submit" style="background:#ff2828; color:#fff; border:none; padding:6px; font-size:11px; border-radius:4px; cursor:pointer; font-weight:bold;">Changer mon mot de passe</button>
+                        </form>
+                    </div>
+
                     <button id="logout-btn" class="btn-logout">Déconnexion</button>
                 </div>
             <?php endif; ?>
@@ -297,56 +360,56 @@ if (session_status() === PHP_SESSION_NONE) {
 
         <div class="modeles-grid">
             <div class="model-card">
-                <div class="card-badge-type supercar">Supercar</div>
+                <div class="card-badge-type supercar">Édition Limitée</div>
                 <div class="card-img-wrapper">
-                    <img src="https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&q=80&w=600" alt="Ferrari SF90">
+                    <img src="https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&q=80&w=600" alt="Monza SP3 Evo">
                 </div>
                 <div class="card-body-content">
-                    <h3>Ferrari SF90 Stradale</h3>
-                    <p>L'innovation hybride au service de la performance.</p>
+                    <h3>Monza SP3 Evo</h3>
+                    <p>L'Équilibre Absolu du V12 atmosphérique.</p>
                     <div class="card-price-container">
                         <span>A partir de</span>
-                        <div class="price">430 000 €</div>
+                        <div class="price">2 000 000 €</div>
                     </div>
-                    <button class="btn-card-discover">Découvrir</button>
+                    <button class="btn-card-discover" onclick="window.location.href='#showroom'; changeVehicle(0);">Découvrir</button>
                 </div>
             </div>
 
             <div class="model-card">
-                <div class="card-badge-type moto">Moto</div>
+                <div class="card-badge-type supercar">Concept Car</div>
                 <div class="card-img-wrapper">
-                    <img src="https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=600" alt="Ducati Panigale">
+                    <img src="https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?auto=format&fit=crop&q=80&w=600" alt="SF100 Vision">
                 </div>
                 <div class="card-body-content">
-                    <h3>Ducati Panigale V4 S</h3>
-                    <p>Technologie de pointe, adrénaline pure.</p>
+                    <h3>SF100 Vision</h3>
+                    <p>Le Futur Hyper-Électrique sur circuit.</p>
                     <div class="card-price-container">
-                        <span>A partir de</span>
-                        <div class="price">430 000 €</div>
+                        <span>Prototype</span>
+                        <div class="price">Unique</div>
                     </div>
-                    <button class="btn-card-discover">Découvrir</button>
+                    <button class="btn-card-discover" onclick="window.location.href='#showroom'; changeVehicle(1);">Découvrir</button>
                 </div>
             </div>
 
             <div class="model-card">
-                <div class="card-badge-type suv">Suv</div>
+                <div class="card-badge-type supercar">Série Spéciale</div>
                 <div class="card-img-wrapper">
-                    <img src="https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?auto=format&fit=crop&q=80&w=600" alt="Ferrari Purosangue">
+                    <img src="https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=600" alt="F42 Aperta">
                 </div>
                 <div class="card-body-content">
-                    <h3>Ferrari Purosangue</h3>
-                    <p>Le premier SUV Ferrari. Polyvalence et prestige</p>
+                    <h3>F42 Aperta</h3>
+                    <p>La Pureté à Ciel Ouvert combinée au V8 hybride.</p>
                     <div class="card-price-container">
                         <span>A partir de</span>
-                        <div class="price">430 000 €</div>
+                        <div class="price">1 200 000 €</div>
                     </div>
-                    <button class="btn-card-discover">Découvrir</button>
+                    <button class="btn-card-discover" onclick="window.location.href='#showroom'; changeVehicle(2);">Découvrir</button>
                 </div>
             </div>
         </div>
 
         <div class="global-action-container">
-            <button class="btn-view-all-range">Voir toute la gamme</button>
+            <button class="btn-view-all-range" onclick="window.location.href='#showroom'">Voir toute la gamme</button>
         </div>
     </section>
 
@@ -356,7 +419,7 @@ if (session_status() === PHP_SESSION_NONE) {
                 <span class="contact-mini-tag">Contact</span>
                 <h2>Une question ?</h2>
                 <p class="contact-desc-text">Notre équipe vous répond sous 24h.</p>
-                
+
                 <form action="#" method="POST" class="custom-contact-form">
                     <div class="custom-input-box">
                         <i class="fa-solid fa-user"></i>
@@ -397,7 +460,7 @@ if (session_status() === PHP_SESSION_NONE) {
                     <a href="#"><i class="fa-brands fa-youtube"></i></a>
                 </div>
             </div>
-            
+
             <div class="footer-links-block">
                 <h4>Navigation Rapide</h4>
                 <ul>
@@ -433,6 +496,58 @@ if (session_status() === PHP_SESSION_NONE) {
         </div>
     </footer>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Gestion des Onglets du Side Panel (Fiche technique vs Avis)
+            const tabButtons = document.querySelectorAll('#side-panel .tabs-navigation .tab-btn');
+            const tabPanes = document.querySelectorAll('#side-panel .tab-pane');
+            
+            tabButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    tabButtons.forEach(b => b.classList.remove('active'));
+                    tabPanes.forEach(p => {
+                        p.classList.remove('active');
+                        p.style.display = 'none';
+                    });
+                    
+                    btn.classList.add('active');
+                    const targetPane = document.getElementById(btn.getAttribute('data-tab'));
+                    if (targetPane) {
+                        targetPane.classList.add('active');
+                        targetPane.style.display = 'block';
+                    }
+                });
+            });
+
+            // Gestion de l'ouverture / fermeture de la modale de Connexion / Profil
+            const profileTrigger = document.getElementById('profile-trigger');
+            const authModal = document.getElementById('auth-modal');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const triggerFromReviews = document.getElementById('trigger-login-from-reviews');
+
+            const openModal = () => authModal.classList.add('active');
+            const closeModal = () => authModal.classList.remove('active');
+
+            if (profileTrigger) profileTrigger.addEventListener('click', openModal);
+            if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+            if (triggerFromReviews) triggerFromReviews.addEventListener('click', openModal);
+
+            // Gestion du basculement Connexion / Inscription dans la modale
+            const modalTabs = document.querySelectorAll('.modal-container .auth-tabs .tab-btn');
+            const authForms = document.querySelectorAll('.modal-container .auth-form-content');
+
+            modalTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    modalTabs.forEach(t => t.classList.remove('active'));
+                    authForms.forEach(f => f.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    const targetForm = document.getElementById(tab.getAttribute('data-tab'));
+                    if (targetForm) targetForm.classList.add('active');
+                });
+            });
+        });
+    </script>
     <script type="module" src="assets/js/main.js"></script>
 </body>
 </html>

@@ -338,6 +338,56 @@ if (arrowPrev) {
 // 9. ENVOI ET CHARGEMENT DES AVIS (AJAX SÉCURISÉ)
 // =========================================================================
 
+function fetchUserActivity() {
+    // On cible précisément l'ID de ton conteneur existant : 'user-reviews-container'
+    const activityContainer = document.getElementById('user-reviews-container'); 
+    
+    if (!activityContainer) return;
+
+    // Si pas connecté, on remplace le chargement par un message d'invitation
+    if (!AppState.isAuthenticated) {
+        activityContainer.innerHTML = '<p style="opacity:0.5; font-size:12px; font-style:italic; text-align:center; margin:0; color:#fff;">Connectez-vous pour voir votre activité.</p>';
+        return;
+    }
+
+    secureFetch('api/main.php?action=getUserComments')
+        .then(data => {
+            if (data && data.success && data.my_comments && data.my_comments.length > 0) {
+                let html = '<div class="user-activity-list" style="padding-right: 5px;">';
+                
+                data.my_comments.forEach(c => {
+                    let stars = '';
+                    for (let i = 1; i <= 5; i++) {
+                        stars += i <= c.rating ? '★' : '☆';
+                    }
+                    
+                    // Récupération du titre du véhicule depuis carData
+                    const carName = carData[c.vehicle_index] ? carData[c.vehicle_index].title : `Véhicule #${c.vehicle_index}`;
+
+                    html += `
+                        <div class="user-activity-item" style="border-bottom: 1px solid #222; padding: 8px 0; font-size: 13px;">
+                            <div style="display:flex; justify-content:space-between; color:#ff2828; font-weight:bold;">
+                                <span>${escapeHtml(carName)}</span>
+                                <span style="color:#ffaa00;">${stars}</span>
+                            </div>
+                            <p style="margin: 4px 0 0 0; color:#ccc; font-style:italic;">"${escapeHtml(c.comment)}"</p>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                // On injecte le HTML directement dedans (ce qui nettoie le "Chargement de votre activité...")
+                activityContainer.innerHTML = html; 
+            } else {
+                activityContainer.innerHTML = '<p style="opacity:0.4; font-size:12px; font-style:italic; text-align:center; margin:0; color:#fff;">Vous n\'avez publié aucun avis pour le moment.</p>';
+            }
+        })
+        .catch(err => {
+            console.error('Erreur activité:', err);
+            activityContainer.innerHTML = '<p style="color:#ff2828; font-size:12px; text-align:center; margin:0;">Impossible de charger votre activité.</p>';
+        });
+}
+
 function fetchCommentsForVehicle(vehicleIndex) {
     const listContainer = document.getElementById('reviews-list-container');
     const sidePreview = document.getElementById('reviews-side-preview');
@@ -538,6 +588,7 @@ if (leaveReviewForm) {
             if (data.success) {
                 commentTextarea.value = '';
                 fetchCommentsForVehicle(AppState.currentIndex);
+                fetchUserActivity(); // 👈 Met à jour l'activité du profil en tâche de fond
                 alert(data.message || 'Votre avis a été enregistré !');
             } else {
                 alert(data.message || 'Erreur lors de l\'envoi de l\'avis.');
@@ -591,6 +642,7 @@ function ouvrirModalConnexion() {
 if (profileTrigger && authModal) {
     profileTrigger.addEventListener('click', () => {
         authModal.classList.add('active');
+        fetchUserActivity(); // 👈 Charge l'activité quand la modale s'ouvre
     });
 }
 
@@ -745,12 +797,20 @@ if (loginForm) {
             });
 
             if (data.success) {
-                // Mettre à jour le token CSRF retourné par le serveur
-                if (data.csrf_token) {
-                    AppState.csrfToken = data.csrf_token;
-                }
                 AppState.isAuthenticated = true;
-                window.location.reload();
+                AppState.csrfToken = data.csrf_token;
+                
+                if (authModal) authModal.classList.remove('active');
+
+                // Vérification du rôle reçu depuis la base de données
+                if (data.role === 'admin') {
+                    // Redirection instantanée vers le tableau de bord de l'administrateur
+                    window.location.href = 'admin/dashboard.php'; 
+                } else {
+                    // Comportement normal pour un membre ou visiteur classique
+                    alert('Connexion réussie ! Bienvenue sur l\'exposition.');
+                    location.reload(); 
+                }
             } else {
                 alert(data.message || 'Identifiants incorrects.');
             }

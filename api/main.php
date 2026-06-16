@@ -123,7 +123,6 @@ switch ($action) {
 
             json_response(true, 'Commentaires récupérés.', ['comments' => $comments]);
         } catch (PDOException $e) {
-            // Log serveur de l'erreur réelle sans la divulguer
             error_log('Erreur get comments : ' . $e->getMessage());
             json_response(false, 'Erreur lors de la lecture des avis.');
         }
@@ -135,18 +134,15 @@ switch ($action) {
             json_response(false, 'Méthode non autorisée pour cette action.');
         }
 
-        // Vérification connexion
         if (!isset($_SESSION['user'])) {
             json_response(false, 'Vous devez être connecté pour laisser un avis.');
         }
 
-        // Vérification CSRF
         $csrf_token = isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '';
         if (!verify_csrf_token($csrf_token)) {
             json_response(false, 'Token CSRF invalide. Rechargez la page.');
         }
 
-        // Rate limiting
         if (!check_rate_limit('add_comment', 10, 60)) {
             json_response(false, 'Trop de commentaires. Réessayez dans une minute.');
         }
@@ -160,7 +156,6 @@ switch ($action) {
             json_response(false, 'Veuillez rédiger un commentaire valide.');
         }
 
-        // Limiter la longueur du commentaire
         if (mb_strlen($comment) > 2000) {
             json_response(false, 'Le commentaire ne peut pas dépasser 2000 caractères.');
         }
@@ -190,7 +185,6 @@ switch ($action) {
             json_response(false, 'Méthode non autorisée pour cette action.');
         }
 
-        // Rate limiting
         if (!check_rate_limit('login', 5, 300)) {
             json_response(false, 'Trop de tentatives de connexion. Réessayez dans 5 minutes.');
         }
@@ -208,18 +202,19 @@ switch ($action) {
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($user && password_verify($password, $user['password'])) {
-                // Régénérer l'ID de session pour éviter la fixation
                 session_regenerate_id(true);
 
                 $_SESSION['user'] = [
                     'id'     => (int)$user['id'],
                     'prenom' => $user['prenom'],
                     'nom'    => $user['nom'],
-                    'email'  => $user['email']
+                    'email'  => $user['email'],
+                    'role'   => $user['role'] // 👈 Utilisation de 'role' (qui vaut 'admin' ou 'user')
                 ];
 
                 json_response(true, 'Connexion réussie.', [
-                    'csrf_token' => generate_csrf_token()
+                    'csrf_token' => generate_csrf_token(),
+                    'role'       => $user['role'] // 👈 Transmis au JavaScript pour la redirection
                 ]);
             } else {
                 json_response(false, 'Identifiants incorrects.');
@@ -236,7 +231,6 @@ switch ($action) {
             json_response(false, 'Méthode non autorisée pour cette action.');
         }
 
-        // Rate limiting
         if (!check_rate_limit('register', 3, 3600)) {
             json_response(false, 'Trop de comptes créés depuis cette adresse IP. Réessayez dans une heure.');
         }
@@ -250,17 +244,14 @@ switch ($action) {
             json_response(false, 'Tous les champs requis doivent être complétés.');
         }
 
-        // Validation email
         if (!validate_email($email)) {
             json_response(false, 'Format d\'email invalide.');
         }
 
-        // Force du mot de passe (minimum 8 caractères)
         if (mb_strlen($password) < 8) {
             json_response(false, 'Le mot de passe doit contenir au moins 8 caractères.');
         }
 
-        // Limiter la taille des champs
         if (mb_strlen($prenom) > 50 || mb_strlen($nom) > 50) {
             json_response(false, 'Prénom et nom limités à 50 caractères.');
         }
@@ -269,14 +260,12 @@ switch ($action) {
         }
 
         try {
-            // Vérification unicité email
             $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
             $stmt->execute(['email' => $email]);
             if ($stmt->fetch()) {
                 json_response(false, 'Cette adresse email est déjà utilisée.');
             }
 
-            // Hachage sécurisé avec Argon2id si disponible
             $hashedPassword = password_hash($password, PASSWORD_ARGON2ID);
 
             $insert = $pdo->prepare("
@@ -290,7 +279,6 @@ switch ($action) {
                 'password' => $hashedPassword
             ]);
 
-            // Auto-connexion
             session_regenerate_id(true);
             $_SESSION['user'] = [
                 'id'     => (int)$pdo->lastInsertId(),
@@ -314,10 +302,8 @@ switch ($action) {
             json_response(false, 'Méthode non autorisée pour cette action.');
         }
 
-        // Nettoyage complet de la session
         $_SESSION = [];
 
-        // Supprimer le cookie de session
         if (ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
             setcookie(
@@ -331,24 +317,60 @@ switch ($action) {
             );
         }
 
-        session_regenerate_id(true);
+        // Suppression de la ligne redondante session_regenerate_id(true);
         session_destroy();
 
         json_response(true, 'Déconnexion réussie.');
         break;
 
-    // —————— RÉCUPÉRER LE TOKEN CSRF (GET, connecté) ——————
+    // —————— RÉCUPÉRER LE TOKEN CSRF (GET) ——————
     case 'csrf':
         if ($method !== 'GET') {
             json_response(false, 'Méthode non autorisée.');
         }
-        if (!isset($_SESSION['user'])) {
-            json_response(false, 'Non connecté.');
-        }
+        // Correction : Suppression de la restriction de connexion pour permettre
+        // l'accès au token CSRF dès le chargement initial de l'application
         json_response(true, 'Token généré.', ['csrf_token' => generate_csrf_token()]);
         break;
 
     default:
         json_response(false, 'Action inconnue.');
+        break;
+
+    // —————— RÉCUPÉRER LES COMMENTAIRES DE L'UTILISATEUR CONNECTÉ (GET, connecté) ——————
+    case 'getUserComments':
+        if ($method !== 'GET') {
+            json_response(false, 'Méthode non autorisée pour cette action.');
+        }
+
+        // Vérifier si l'utilisateur est bien connecté
+        if (!isset($_SESSION['user'])) {
+            json_response(false, 'Vous devez être connecté pour voir votre activité.');
+        }
+
+        $user_id = (int)$_SESSION['user']['id'];
+
+        try {
+            // On récupère les commentaires de l'utilisateur
+            $stmt = $pdo->prepare("
+                SELECT id, vehicle_index, rating, comment, created_at
+                FROM comments
+                WHERE user_id = :user_id
+                ORDER BY created_at DESC
+            ");
+            $stmt->execute(['user_id' => $user_id]);
+            $userComments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Sécurisation XSS des données sortantes
+            foreach ($userComments as &$c) {
+                $c['comment'] = sanitize_output($c['comment']);
+            }
+            unset($c);
+
+            json_response(true, 'Activité récupérée avec succès.', ['my_comments' => $userComments]);
+        } catch (PDOException $e) {
+            error_log('Erreur getUserComments : ' . $e->getMessage());
+            json_response(false, 'Erreur système lors du chargement de votre activité.');
+        }
         break;
 }

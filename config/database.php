@@ -1,24 +1,26 @@
 <?php
 // config/database.php
 
-$host     = 'localhost';
-$dbname   = 'ferrari_vitrine'; // <--- Vérifiez que ce nom correspond à votre phpMyAdmin
-$username = 'root';       // Identifiant par défaut XAMPP / Wamp
-$password = '';           // Mot de passe vide par défaut sur XAMPP / Wamp
+if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.cookie_path', '/'); // Assure que la session est partagée entre l'API et l'index
+    session_start();
+}
 
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password, [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
+    $bdd = new PDO('mysql:host=localhost;dbname=ferrari_vitrine;charset=utf8', 'root', '', [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
-} catch (PDOException $e) {
-    // Si l'appel est fait en AJAX, on renvoie du JSON, sinon un message propre
-    if (isset($_POST['action'])) {
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['success' => false, 'message' => "Erreur BDD : " . $e->getMessage()]);
-        exit;
-    } else {
-        die("Impossible de se connecter à la base de données : " . $e->getMessage());
+} catch (Exception $e) {
+    die('Erreur de connexion à la base de données : ' . $e->getMessage());
+}
+
+/**
+ * Génère un jeton CSRF unique pour le formulaire HTML d'index.php
+ */
+function generate_csrf_token(): string {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
+    return $_SESSION['csrf_token'];
 }

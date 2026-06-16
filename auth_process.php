@@ -1,13 +1,13 @@
 <?php
-// auth_process.php (À la racine du projet)
+// auth_process.php
 
 error_reporting(E_ALL);
-ini_set('display_errors', 0); // Empêche les avertissements de corrompre le JSON
+ini_set('display_errors', 0);
 
 if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([
         'path' => '/',
-        'secure' => false, // Mets à true si tu es en https://
+        'secure' => false,
         'httponly' => true,
         'samesite' => 'Lax'
     ]);
@@ -22,102 +22,223 @@ $response = [
     'message' => 'Action inconnue ou non autorisée.'
 ];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
+function verify_csrf_token(?string $token): bool {
+    if (!$token || empty($_SESSION['csrf_token'])) {
+        return false;
+    }
+    return hash_equals($_SESSION['csrf_token'], $token);
+}
 
-    // -------------------------------------------------------------------------
-    // ACTION : INSCRIPTION
-    // -------------------------------------------------------------------------
-    if ($action === 'register') {
-        $prenom   = trim($_POST['prenom'] ?? '');
-        $nom      = trim($_POST['nom'] ?? '');
-        $email    = trim($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
+// -------------------------------------------------------------------------
+// REQUÊTES GET
+// -------------------------------------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $action = $_GET['action'] ?? '';
 
-        if (empty($prenom) || empty($nom) || empty($email) || empty($password)) {
-            $response['message'] = "Tous les champs sont obligatoires.";
-            echo json_encode($response);
+    if ($action === 'get') {
+        $vehicle_index = (int)($_GET['vehicle_index'] ?? 0);
+        try {
+            $stmt = $bdd->prepare("
+                SELECT c.id, c.comment, c.rating, u.prenom, u.nom 
+                FROM comments c
+                INNER JOIN users u ON c.user_id = u.id
+                WHERE c.vehicle_index = :vi AND c.is_deleted = 0 
+                ORDER BY c.id DESC
+            ");
+            $stmt->execute(['vi' => $vehicle_index]);
+            $comments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode(['success' => true, 'comments' => $comments], JSON_UNESCAPED_UNICODE);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur de chargement : ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    }
+
+    if ($action === 'getUserComments') {
+        if (empty($_SESSION['user']['id'])) {
+            echo json_encode(['success' => false, 'message' => 'Utilisateur non connecté.'], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
         try {
-            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-            $stmt->execute([$email]);
-            if ($stmt->fetch()) {
-                $response['message'] = "Cette adresse email est déjà utilisée.";
-                echo json_encode($response);
+            // AJOUT : Sélection de c.id pour pouvoir cibler l'avis côté JavaScript
+            $stmt = $bdd->prepare("
+                SELECT id, vehicle_index, comment, rating 
+                FROM comments 
+                WHERE user_id = :uid AND is_deleted = 0 
+                ORDER BY id DESC
+            ");
+            $stmt->execute(['uid' => $_SESSION['user']['id']]);
+            $my_comments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode(['success' => true, 'my_comments' => $my_comments], JSON_UNESCAPED_UNICODE);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur d\'activité : ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    }
+}
+
+// -------------------------------------------------------------------------
+// REQUÊTES POST
+// -------------------------------------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    $csrf_received = $_POST['csrf_token'] ?? '';
+
+    if (!verify_csrf_token($csrf_received)) {
+        echo json_encode(['success' => false, 'message' => 'Erreur de sécurité : Jeton CSRF invalide.']);
+        exit;
+    }
+
+    // --- INSCRIPTION & CONNEXION ---
+    if ($action === 'register') {
+        $prenom = trim($_POST['prenom'] ?? '');
+        $nom = trim($_POST['nom'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
+
+        if (empty($prenom) || empty($nom) || empty($email) || empty($password)) {
+            echo json_encode(['success' => false, 'message' => 'Tous les champs sont requis.']);
+            exit;
+        }
+
+        try {
+            $stmtCheck = $bdd->prepare("SELECT id FROM users WHERE email = :email");
+            $stmtCheck->execute(['email' => $email]);
+            if ($stmtCheck->fetch()) {
+                echo json_encode(['success' => false, 'message' => 'Cette adresse email est déjà utilisée.']);
                 exit;
             }
 
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-            $avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150";
+            $stmtInsert = $bdd->prepare("INSERT INTO users (prenom, nom, email, password, role) VALUES (:prenom, :nom, :email, :password, 'member')");
+            $stmtInsert->execute(['prenom' => $prenom, 'nom' => $nom, 'email' => $email, 'password' => $hashedPassword]);
 
-            $insert = $pdo->prepare("INSERT INTO users (prenom, nom, email, password, avatar_url, role) VALUES (?, ?, ?, ?, ?, 'user')");
-            $insert->execute([$prenom, $nom, $email, $hashedPassword, $avatarUrl]);
+            $_SESSION['user'] = ['id' => $bdd->lastInsertId(), 'prenom' => $prenom, 'nom' => $nom, 'email' => $email, 'role' => 'member'];
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
-            $_SESSION['user'] = [
-                'id'         => $pdo->lastInsertId(),
-                'prenom'     => $prenom,
-                'nom'        => $nom,
-                'email'      => $email,
-                'avatar_url' => $avatarUrl,
-                'role'       => 'user'
-            ];
-
-            $response['success'] = true;
-            $response['message'] = "Compte créé avec succès !";
-
+            echo json_encode(['success' => true, 'message' => 'Compte créé !', 'csrf_token' => $_SESSION['csrf_token'], 'role' => 'member']);
+            exit;
         } catch (PDOException $e) {
-            $response['message'] = "Erreur SQL lors de l'enregistrement : " . $e->getMessage();
+            echo json_encode(['success' => false, 'message' => 'Erreur inscription.']);
+            exit;
         }
     }
 
-    // -------------------------------------------------------------------------
-    // ACTION : CONNEXION
-    // -------------------------------------------------------------------------
     elseif ($action === 'login') {
-        $email    = trim($_POST['email'] ?? '');
+        $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
 
         try {
-            $stmt = $pdo->prepare("SELECT id, prenom, nom, email, password, avatar_url, role FROM users WHERE email = ?");
-            $stmt->execute([$email]);
-            $user = $stmt->fetch();
+            $stmt = $bdd->prepare("SELECT id, prenom, nom, email, password, role FROM users WHERE email = :email");
+            $stmt->execute(['email' => $email]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($user && password_verify($password, $user['password'])) {
-                
-                // Nettoyage strict du rôle (minuscules et sans espaces cachés)
-                $userRole = isset($user['role']) ? strtolower(trim($user['role'])) : 'user';
+                $userRole = isset($user['role']) ? strtolower(trim($user['role'])) : 'member';
+                $_SESSION['user'] = ['id' => $user['id'], 'prenom' => $user['prenom'], 'nom' => $user['nom'], 'email' => $user['email'], 'role' => $userRole];
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
-                $_SESSION['user'] = [
-                    'id'         => $user['id'],
-                    'prenom'     => $user['prenom'],
-                    'nom'        => $user['nom'],
-                    'email'      => $user['email'],
-                    'avatar_url' => $user['avatar_url'] ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
-                    'role'       => $userRole
-                ];
-                
-                $response['success'] = true;
-                $response['message'] = "Connexion réussie !";
-                $response['role']    = $userRole; // Transmis au JS pour redirection
-
+                echo json_encode(['success' => true, 'message' => 'Connecté !', 'role' => $userRole, 'csrf_token' => $_SESSION['csrf_token']]);
+                exit;
             } else {
-                $response['message'] = "Identifiants ou mot de passe incorrects.";
+                echo json_encode(['success' => false, 'message' => 'Identifiants incorrects.']);
+                exit;
             }
         } catch (PDOException $e) {
-            $response['message'] = "Erreur SQL lors de la connexion : " . $e->getMessage();
+            echo json_encode(['success' => false, 'message' => 'Erreur connexion.']);
+            exit;
         }
     }
 
-    // -------------------------------------------------------------------------
-    // ACTION : DÉCONNEXION
-    // -------------------------------------------------------------------------
+    // --- AJOUTER UN AVIS ---
+    elseif ($action === 'add') {
+        if (empty($_SESSION['user']['id'])) {
+            echo json_encode(['success' => false, 'message' => 'Non connecté.']);
+            exit;
+        }
+
+        $vehicle_index = (int)($_POST['vehicle_index'] ?? 0);
+        $comment = trim($_POST['comment'] ?? '');
+        $rating = min(5, max(1, (int)($_POST['rating'] ?? 5)));
+
+        if (empty($comment)) {
+            echo json_encode(['success' => false, 'message' => 'Commentaire vide.']);
+            exit;
+        }
+
+        try {
+            $stmt = $bdd->prepare("INSERT INTO comments (user_id, vehicle_index, rating, comment, is_deleted) VALUES (?, ?, ?, ?, 0)");
+            $stmt->execute([$_SESSION['user']['id'], $vehicle_index, $rating, $comment]);
+            echo json_encode(['success' => true, 'message' => 'Votre avis a été enregistré !']);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur SQL : ' . $e->getMessage()]);
+            exit;
+        }
+    }
+
+    // --- MODIFIER UN AVIS (NOUVEAU) ---
+    elseif ($action === 'edit') {
+        if (empty($_SESSION['user']['id'])) {
+            echo json_encode(['success' => false, 'message' => 'Action non autorisée.']);
+            exit;
+        }
+
+        $comment_id = (int)($_POST['comment_id'] ?? 0);
+        $comment = trim($_POST['comment'] ?? '');
+        $rating = min(5, max(1, (int)($_POST['rating'] ?? 5)));
+
+        if (empty($comment)) {
+            echo json_encode(['success' => false, 'message' => 'Le commentaire ne peut pas être vide.']);
+            exit;
+        }
+
+        try {
+            // On vérifie que le commentaire appartient bien à l'utilisateur connecté avant de modifier
+            $stmt = $bdd->prepare("UPDATE comments SET comment = ?, rating = ? WHERE id = ? AND user_id = ?");
+            $stmt->execute([$comment, $rating, $comment_id, $_SESSION['user']['id']]);
+            
+            echo json_encode(['success' => true, 'message' => 'Votre avis a été modifié avec succès !']);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur lors de la modification.']);
+            exit;
+        }
+    }
+
+    // --- SUPPRIMER UN AVIS (NOUVEAU) ---
+    elseif ($action === 'delete') {
+        if (empty($_SESSION['user']['id'])) {
+            echo json_encode(['success' => false, 'message' => 'Action non autorisée.']);
+            exit;
+        }
+
+        $comment_id = (int)($_POST['comment_id'] ?? 0);
+
+        try {
+            // Soft delete (mise à jour du flag is_deleted) sécurisé par user_id
+            $stmt = $bdd->prepare("UPDATE comments SET is_deleted = 1 WHERE id = ? AND user_id = ?");
+            $stmt->execute([$comment_id, $_SESSION['user']['id']]);
+            
+            echo json_encode(['success' => true, 'message' => 'Votre avis a été supprimé.']);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur lors de la suppression.']);
+            exit;
+        }
+    }
+
+    // --- DÉCONNEXION ---
     elseif ($action === 'logout') {
         unset($_SESSION['user']);
         session_destroy();
-        $response['success'] = true;
-        $response['message'] = "Déconnexion réussie.";
+        echo json_encode(['success' => true, 'message' => 'Déconnecté.']);
+        exit;
     }
 }
 

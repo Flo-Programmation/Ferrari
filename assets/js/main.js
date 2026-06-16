@@ -1,14 +1,7 @@
-/**
- * Scuderia Ferrari Exhibition - Main Application Script
- * Version sécurisée avec CSRF, XSS protection, validation client et CSP
- */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-// =========================================================================
-// 1. BASE DE DONNÉES DES VÉHICULES ET CONFIGURATIONS
-// =========================================================================
 const carData = [
     {
         model: "assets/models/ferrari_bleu.glb",
@@ -54,66 +47,36 @@ const carData = [
     }
 ];
 
-// =========================================================================
-// 2. ÉTAT GLOBAL DE L'APPLICATION (encapsulé dans un objet pour limiter l'exposition)
-// =========================================================================
 const AppState = {
     currentIndex: 0,
     loadedGroups: new Map(),
     currentAudio: null,
     currentActiveGroup: null,
-    csrfToken: null,
+    csrfToken: document.getElementById('global-csrf-token')?.value || null,
     isAuthenticated: false
 };
 
-// =========================================================================
-// 3. FONCTIONS UTILITAIRES DE SÉCURITÉ
-// =========================================================================
-
-/**
- * Échappe le HTML pour prévenir les XSS.
- * Utilisé pour TOUT affichage de données venant de l'extérieur (API, utilisateur).
- */
 function escapeHtml(text) {
     if (!text) return '';
-    return text
-        .toString()
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;')
-        .replace(/\//g, '&#x2F;');
+    return text.toString()
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#039;').replace(/\//g, '&#x2F;');
 }
 
-/**
- * Échappe une URL pour éviter les injections dans les attributs src/href
- */
 function escapeUrl(url) {
-    if (!url) return '';
-    // Ne garder que les protocoles autorisés
-    const allowedProtocols = ['https://', 'http://', 'data:', 'blob:'];
+    if (!url) return 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
+    const allowed = ['https://', 'http://', 'data:', 'blob:'];
     const sanitized = escapeHtml(url.trim());
-    for (const protocol of allowedProtocols) {
-        if (sanitized.toLowerCase().startsWith(protocol)) {
-            return sanitized;
-        }
+    for (const protocol of allowed) {
+        if (sanitized.toLowerCase().startsWith(protocol)) return sanitized;
     }
-    // Si aucun protocole autorisé, retourner une URL par défaut
     return 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
 }
 
-/**
- * Valide un email côté client avant envoi
- */
 function isValidEmail(email) {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email.trim());
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
-/**
- * Vérifie la force du mot de passe côté client
- */
 function getPasswordStrength(password) {
     let score = 0;
     if (password.length >= 8) score++;
@@ -125,27 +88,16 @@ function getPasswordStrength(password) {
     return score;
 }
 
-/**
- * Limite la longueur d'une chaîne
- */
 function truncateText(text, maxLength) {
     if (!text) return '';
     text = text.trim();
-    if (text.length > maxLength) {
-        return text.substring(0, maxLength);
-    }
-    return text;
+    return text.length > maxLength ? text.substring(0, maxLength) : text;
 }
 
-/**
- * Gère les réponses API de manière sécurisée
- */
 async function secureFetch(url, options = {}) {
     try {
         const response = await fetch(url, options);
-        if (!response.ok) {
-            throw new Error(`Erreur HTTP: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
             throw new Error('Réponse non-JSON reçue');
@@ -157,35 +109,26 @@ async function secureFetch(url, options = {}) {
     }
 }
 
-// =========================================================================
-// 4. GESTION DU TOKEN CSRF
-// =========================================================================
-
-/**
- * Récupère le token CSRF depuis le serveur
- */
 async function fetchCsrfToken() {
     const data = await secureFetch('api/main.php?action=csrf');
     if (data.success && data.csrf_token) {
         AppState.csrfToken = data.csrf_token;
+        const inputHtmlToken = document.getElementById('global-csrf-token');
+        if (inputHtmlToken) inputHtmlToken.value = data.csrf_token;
         return true;
     }
     return false;
 }
 
-/**
- * Ajoute le token CSRF à un FormData
- */
 function addCsrfToken(formData) {
+    if (!AppState.csrfToken) {
+        AppState.csrfToken = document.getElementById('global-csrf-token')?.value || null;
+    }
     if (AppState.csrfToken) {
         formData.append('csrf_token', AppState.csrfToken);
     }
     return formData;
 }
-
-// =========================================================================
-// 5. GESTION AUDIO
-// =========================================================================
 
 function stopCurrentVehicleSound() {
     if (AppState.currentAudio) {
@@ -199,25 +142,14 @@ function playVehicleSound() {
     stopCurrentVehicleSound();
     const audio = new Audio(carData[AppState.currentIndex].sound);
     audio.volume = 0.2;
-    audio.play().catch(err => {
-        console.warn('Lecture audio impossible:', err);
-    });
+    audio.play().catch(err => console.warn('Lecture audio impossible:', err));
     AppState.currentAudio = audio;
 }
-
-// =========================================================================
-// 6. INITIALISATION DE LA SCÈNE THREE.JS
-// =========================================================================
 
 const container = document.getElementById('webgl-canvas-container');
 const scene = new THREE.Scene();
 
-const camera = new THREE.PerspectiveCamera(
-    35,
-    container ? container.clientWidth / container.clientHeight : 1,
-    0.1,
-    100
-);
+const camera = new THREE.PerspectiveCamera(35, container ? container.clientWidth / container.clientHeight : 1, 0.1, 100);
 camera.position.set(0, 0.3, 5.0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -243,10 +175,6 @@ controls.minAzimuthAngle = -Math.PI / 5;
 controls.maxAzimuthAngle = Math.PI / 5;
 controls.minPolarAngle = Math.PI / 2.5;
 controls.maxPolarAngle = Math.PI / 1.95;
-
-// =========================================================================
-// 7. CHARGEMENT DES MODÈLES 3D
-// =========================================================================
 
 const loader = new GLTFLoader();
 
@@ -280,10 +208,6 @@ function loadVehicleModel(index) {
     });
 }
 
-// =========================================================================
-// 8. LOGIQUE DE CHANGEMENT DE VÉHICULE (SLIDER)
-// =========================================================================
-
 async function changeVehicle(newIndex) {
     stopCurrentVehicleSound();
     AppState.currentIndex = newIndex;
@@ -300,7 +224,6 @@ async function changeVehicle(newIndex) {
     if (titleEl) titleEl.innerText = data.title;
     if (subtitleEl) subtitleEl.innerText = data.subtitle;
     if (badgeEl) badgeEl.innerText = data.badge;
-    // specs vient du code source (pas de l'API) -> innerHTML acceptable
     if (specsEl) specsEl.innerHTML = data.specs;
     if (descEl) descEl.innerText = data.desc;
     
@@ -323,61 +246,107 @@ async function changeVehicle(newIndex) {
 
 const arrowNext = document.getElementById('arrow-next');
 const arrowPrev = document.getElementById('arrow-prev');
-if (arrowNext) {
-    arrowNext.addEventListener('click', () => {
-        changeVehicle((AppState.currentIndex + 1) % carData.length);
-    });
-}
-if (arrowPrev) {
-    arrowPrev.addEventListener('click', () => {
-        changeVehicle((AppState.currentIndex - 1 + carData.length) % carData.length);
-    });
-}
-
-// =========================================================================
-// 9. ENVOI ET CHARGEMENT DES AVIS (AJAX SÉCURISÉ)
-// =========================================================================
+if (arrowNext) arrowNext.addEventListener('click', () => changeVehicle((AppState.currentIndex + 1) % carData.length));
+if (arrowPrev) arrowPrev.addEventListener('click', () => changeVehicle((AppState.currentIndex - 1 + carData.length) % carData.length));
 
 function fetchUserActivity() {
-    // On cible précisément l'ID de ton conteneur existant : 'user-reviews-container'
     const activityContainer = document.getElementById('user-reviews-container'); 
-    
     if (!activityContainer) return;
 
-    // Si pas connecté, on remplace le chargement par un message d'invitation
     if (!AppState.isAuthenticated) {
         activityContainer.innerHTML = '<p style="opacity:0.5; font-size:12px; font-style:italic; text-align:center; margin:0; color:#fff;">Connectez-vous pour voir votre activité.</p>';
         return;
     }
 
-    secureFetch('api/main.php?action=getUserComments')
+    // On cible le bon fichier de traitement PHP
+    secureFetch('auth_process.php?action=getUserComments')
         .then(data => {
             if (data && data.success && data.my_comments && data.my_comments.length > 0) {
                 let html = '<div class="user-activity-list" style="padding-right: 5px;">';
-                
                 data.my_comments.forEach(c => {
-                    let stars = '';
-                    for (let i = 1; i <= 5; i++) {
-                        stars += i <= c.rating ? '★' : '☆';
-                    }
-                    
-                    // Récupération du titre du véhicule depuis carData
+                    let stars = '★'.repeat(c.rating) + '☆'.repeat(5 - c.rating);
                     const carName = carData[c.vehicle_index] ? carData[c.vehicle_index].title : `Véhicule #${c.vehicle_index}`;
-
+                    
                     html += `
-                        <div class="user-activity-item" style="border-bottom: 1px solid #222; padding: 8px 0; font-size: 13px;">
+                        <div class="user-activity-item" id="user-comment-row-${c.id}" style="border-bottom: 1px solid #222; padding: 12px 0; font-size: 13px;">
                             <div style="display:flex; justify-content:space-between; color:#ff2828; font-weight:bold;">
                                 <span>${escapeHtml(carName)}</span>
                                 <span style="color:#ffaa00;">${stars}</span>
                             </div>
-                            <p style="margin: 4px 0 0 0; color:#ccc; font-style:italic;">"${escapeHtml(c.comment)}"</p>
-                        </div>
-                    `;
+                            <p class="comment-text-content" style="margin: 6px 0; color:#ccc; font-style:italic;">"${escapeHtml(c.comment)}"</p>
+                            <div style="display:flex; gap:15px; margin-top:5px; font-size:11px;">
+                                <span class="btn-edit-my-comment" data-id="${c.id}" data-text="${escapeHtml(c.comment)}" data-rating="${c.rating}" style="color:#ffaa00; cursor:pointer; text-decoration:underline;"><i class="fa-solid fa-pen"></i> Modifier</span>
+                                <span class="btn-delete-my-comment" data-id="${c.id}" style="color:#ff2828; cursor:pointer; text-decoration:underline;"><i class="fa-solid fa-trash"></i> Supprimer</span>
+                            </div>
+                        </div>`;
                 });
-                
                 html += '</div>';
-                // On injecte le HTML directement dedans (ce qui nettoie le "Chargement de votre activité...")
-                activityContainer.innerHTML = html; 
+                activityContainer.innerHTML = html;
+
+                // Liaison des événements de suppression
+                activityContainer.querySelectorAll('.btn-delete-my-comment').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = this.dataset.id;
+                        if (confirm('Voulez-vous vraiment supprimer cet avis ?')) {
+                            const formData = new FormData();
+                            formData.append('action', 'delete');
+                            formData.append('comment_id', id);
+                            addCsrfToken(formData);
+
+                            secureFetch('auth_process.php', { method: 'POST', body: formData })
+                                .then(res => {
+                                    if (res.success) {
+                                        alert(res.message);
+                                        fetchUserActivity();
+                                        fetchCommentsForVehicle(AppState.currentIndex);
+                                    } else {
+                                        alert(res.message);
+                                    }
+                                });
+                        }
+                    });
+                });
+
+                // Liaison des événements de modification (Réparé !)
+                activityContainer.querySelectorAll('.btn-edit-my-comment').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = this.dataset.id;
+                        const oldText = this.dataset.text;
+                        const oldRating = this.dataset.rating;
+
+                        const newText = prompt("Modifiez votre commentaire :", oldText);
+                        if (newText === null) return; // Annulation de l'utilisateur
+                        if (newText.trim() === '') {
+                            alert("Le commentaire ne peut pas être vide.");
+                            return;
+                        }
+
+                        const newRatingStr = prompt("Nouvelle note (1 à 5) :", oldRating);
+                        if (newRatingStr === null) return; // Annulation de l'utilisateur
+                        
+                        // Utilisation correcte de Math.max
+                        const newRating = Math.min(5, Math.max(1, parseInt(newRatingStr) || 5));
+
+                        const formData = new FormData();
+                        formData.append('action', 'edit');
+                        formData.append('comment_id', id);
+                        formData.append('comment', newText.trim());
+                        formData.append('rating', newRating);
+                        addCsrfToken(formData);
+
+                        secureFetch('auth_process.php', { method: 'POST', body: formData })
+                            .then(res => {
+                                if (res.success) {
+                                    alert(res.message);
+                                    fetchUserActivity(); // Recharge l'onglet d'activité
+                                    fetchCommentsForVehicle(AppState.currentIndex); // Met à jour la liste principale en direct
+                                } else {
+                                    alert(res.message);
+                                }
+                            });
+                    });
+                });
+
             } else {
                 activityContainer.innerHTML = '<p style="opacity:0.4; font-size:12px; font-style:italic; text-align:center; margin:0; color:#fff;">Vous n\'avez publié aucun avis pour le moment.</p>';
             }
@@ -396,10 +365,9 @@ function fetchCommentsForVehicle(vehicleIndex) {
     const avgNumSpan = document.getElementById('average-rating-num');
     const totalCountSpan = document.getElementById('total-reviews-count');
 
-    // Validation côté client du paramètre
     const sanitizedIndex = Math.max(0, parseInt(vehicleIndex) || 0);
 
-    secureFetch(`api/main.php?action=get&vehicle_index=${sanitizedIndex}`)
+    secureFetch(`auth_process.php?action=get&vehicle_index=${sanitizedIndex}`)
         .then(data => {
             let totalComments = 0;
             let averageRating = 0.0;
@@ -423,11 +391,9 @@ function fetchCommentsForVehicle(vehicleIndex) {
                 let gStarsHTML = '';
                 const roundedAvg = Math.round(parseFloat(averageRating));
                 for (let i = 1; i <= 5; i++) {
-                    if (i <= roundedAvg) {
-                        gStarsHTML += '<i class="fa-solid fa-star" style="margin-right:2px; color:#ffaa00;"></i>';
-                    } else {
-                        gStarsHTML += '<i class="fa-regular fa-star" style="margin-right:2px; color:#555;"></i>';
-                    }
+                    gStarsHTML += i <= roundedAvg 
+                        ? '<i class="fa-solid fa-star" style="margin-right:2px; color:#ffaa00;"></i>' 
+                        : '<i class="fa-regular fa-star" style="margin-right:2px; color:#555;"></i>';
                 }
                 globalStarsContainer.innerHTML = gStarsHTML;
             }
@@ -444,8 +410,7 @@ function fetchCommentsForVehicle(vehicleIndex) {
                                 <div class="distrib-bar-fill" style="width: ${pct}%;"></div>
                             </div>
                             <span class="distrib-percent">${pct}%</span>
-                        </div>
-                    `;
+                        </div>`;
                 }
                 distribContainer.innerHTML = distribHTML;
             }
@@ -457,9 +422,7 @@ function fetchCommentsForVehicle(vehicleIndex) {
                         <p style="font-size:13px; margin:0; font-style:italic; color:#fff;">il n'y a pas encore d'avis sur ce modèle</p>
                     </div>`;
                 if (listContainer) listContainer.innerHTML = emptyMessage;
-                if (sidePreview) {
-                    sidePreview.innerHTML = '<p style="opacity:0.4; font-size:12px; font-style:italic; margin:0; color:#fff;">Aucun avis pour le moment.</p>';
-                }
+                if (sidePreview) sidePreview.innerHTML = '<p style="opacity:0.4; font-size:12px; font-style:italic; margin:0; color:#fff;">Aucun avis pour le moment.</p>';
                 return;
             }
 
@@ -467,7 +430,6 @@ function fetchCommentsForVehicle(vehicleIndex) {
             let previewHTML = '';
 
             data.comments.forEach((comment, index) => {
-                // Sécurité : échappement systématique de TOUT ce qui vient de l'API
                 const commentText = escapeHtml(comment.comment || '');
                 const prenom = escapeHtml(comment.prenom || 'Utilisateur');
                 const nom = comment.nom ? escapeHtml(comment.nom.charAt(0) + '.') : '';
@@ -477,11 +439,9 @@ function fetchCommentsForVehicle(vehicleIndex) {
                 let starsHTML = '';
                 const ratingVal = Math.min(5, Math.max(0, parseInt(comment.rating) || 0));
                 for (let i = 1; i <= 5; i++) {
-                    if (i <= ratingVal) {
-                        starsHTML += '<i class="fa-solid fa-star" style="color:#ffaa00;"></i>';
-                    } else {
-                        starsHTML += '<i class="fa-regular fa-star" style="color:#555;"></i>';
-                    }
+                    starsHTML += i <= ratingVal 
+                        ? '<i class="fa-solid fa-star" style="color:#ffaa00;"></i>' 
+                        : '<i class="fa-regular fa-star" style="color:#555;"></i>';
                 }
 
                 listHTML += `
@@ -511,51 +471,33 @@ function fetchCommentsForVehicle(vehicleIndex) {
             if (listContainer) listContainer.innerHTML = listHTML;
             if (sidePreview) sidePreview.innerHTML = previewHTML;
         })
-        .catch(err => {
-            console.error('Erreur lors de la récupération des avis :', err);
-            if (listContainer) {
-                listContainer.innerHTML = `
-                    <div style="text-align:center; padding:60px 10px; opacity:0.4;">
-                        <p style="font-size:13px; margin:0; color:#ff2828;">Impossible de charger les avis.</p>
-                    </div>`;
-            }
-        });
+        .catch(err => console.error('Erreur lors de la récupération des avis :', err));
 }
-
-// =========================================================================
-// 10. FORMULAIRE D'AJOUT D'AVIS (AVEC CSRF ET VALIDATION)
-// =========================================================================
 
 const leaveReviewForm = document.getElementById('leave-review-form');
 if (leaveReviewForm) {
     leaveReviewForm.addEventListener('submit', async function(e) {
         e.preventDefault();
 
-        // Vérifier que l'utilisateur est connecté
         if (!AppState.isAuthenticated) {
             alert('Vous devez être connecté pour laisser un avis.');
             ouvrirModalConnexion();
             return;
         }
 
-        // Vérifier que le token CSRF est disponible
         if (!AppState.csrfToken) {
             const loaded = await fetchCsrfToken();
             if (!loaded) {
-                alert('Erreur de sécurité. Rechargez la page.');
+                alert('Erreur de sécurité. Jeton CSRF introuvable, rechargez la page.');
                 return;
             }
         }
 
-        const checkedStarInput = leaveReviewForm.querySelector(
-            'input[name="stars-qty"]:checked, input[name="rating"]:checked'
-        );
+        const checkedStarInput = leaveReviewForm.querySelector('input[name="stars-qty"]:checked, input[name="rating"]:checked');
         const commentTextarea = document.getElementById('review-textarea');
         if (!commentTextarea) return;
 
-        // Validation côté client
         const commentText = commentTextarea.value.trim();
-        
         if (commentText.length === 0) {
             alert('Veuillez écrire un commentaire.');
             commentTextarea.focus();
@@ -568,7 +510,6 @@ if (leaveReviewForm) {
             return;
         }
 
-        // Sécurisation : limiter la taille du commentaire envoyé
         const safeComment = truncateText(commentText, 2000);
         const rating = checkedStarInput ? Math.min(5, Math.max(1, parseInt(checkedStarInput.value) || 5)) : 5;
 
@@ -577,24 +518,24 @@ if (leaveReviewForm) {
         formData.append('vehicle_index', AppState.currentIndex);
         formData.append('rating', rating);
         formData.append('comment', safeComment);
-        addCsrfToken(formData);
+        addCsrfToken(formData); 
 
         try {
-            const data = await secureFetch('api/main.php', {
-                method: 'POST',
-                body: formData
-            });
+            const data = await secureFetch('auth_process.php', {
+            method: 'POST',
+            body: formData
+        });
 
             if (data.success) {
                 commentTextarea.value = '';
+                if (checkedStarInput) checkedStarInput.checked = false; 
                 fetchCommentsForVehicle(AppState.currentIndex);
-                fetchUserActivity(); // 👈 Met à jour l'activité du profil en tâche de fond
+                fetchUserActivity(); 
                 alert(data.message || 'Votre avis a été enregistré !');
             } else {
                 alert(data.message || 'Erreur lors de l\'envoi de l\'avis.');
-                // Si le token CSRF est invalide, en récupérer un nouveau
                 if (data.message && data.message.toLowerCase().includes('csrf')) {
-                    await fetchCsrfToken();
+                    window.location.reload();
                 }
             }
         } catch (err) {
@@ -604,22 +545,14 @@ if (leaveReviewForm) {
     });
 }
 
-// =========================================================================
-// 11. GESTION DES MODALES, ONGLETS ET PANNEAUX LATÉRAUX
-// =========================================================================
-
 const sidePanel = document.getElementById('side-panel');
 const openPanelBtn = document.getElementById('open-panel-btn') || document.querySelector('.open-panel-btn');
 const closePanelBtn = document.getElementById('close-panel-btn') || document.querySelector('.close-panel-btn');
 const tabBtns = document.querySelectorAll('.tabs-navigation .tab-btn');
 const tabContents = document.querySelectorAll('.side-panel-body .tab-pane');
 
-if (openPanelBtn && sidePanel) {
-    openPanelBtn.addEventListener('click', () => sidePanel.classList.add('open'));
-}
-if (closePanelBtn && sidePanel) {
-    closePanelBtn.addEventListener('click', () => sidePanel.classList.remove('open'));
-}
+if (openPanelBtn && sidePanel) openPanelBtn.addEventListener('click', () => sidePanel.classList.add('open'));
+if (closePanelBtn && sidePanel) closePanelBtn.addEventListener('click', () => sidePanel.classList.remove('open'));
 
 tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -642,26 +575,17 @@ function ouvrirModalConnexion() {
 if (profileTrigger && authModal) {
     profileTrigger.addEventListener('click', () => {
         authModal.classList.add('active');
-        fetchUserActivity(); // 👈 Charge l'activité quand la modale s'ouvre
+        fetchUserActivity(); 
     });
 }
 
-if (closeModalBtn && authModal) {
-    closeModalBtn.addEventListener('click', () => {
-        authModal.classList.remove('active');
-    });
-}
-
-// Fermeture de la modale en cliquant en dehors
+if (closeModalBtn && authModal) closeModalBtn.addEventListener('click', () => authModal.classList.remove('active'));
 if (authModal) {
     authModal.addEventListener('click', (e) => {
-        if (e.target === authModal) {
-            authModal.classList.remove('active');
-        }
+        if (e.target === authModal) authModal.classList.remove('active');
     });
 }
 
-// Gestion des onglets dans la modale d'auth
 const authFormTabs = document.querySelectorAll('#auth-modal .auth-tabs .tab-btn');
 const authFormContents = document.querySelectorAll('#auth-modal .auth-form-content');
 
@@ -674,10 +598,6 @@ authFormTabs.forEach(tab => {
         if (targetForm) targetForm.classList.add('active');
     });
 });
-
-// =========================================================================
-// 12. ROBUSTESSE DU MOT DE PASSE (VÉRIFICATION EN TEMPS RÉEL)
-// =========================================================================
 
 const registerPasswordInput = document.getElementById('register-password');
 const strengthContainer = document.getElementById('password-strength-container');
@@ -698,45 +618,32 @@ if (registerPasswordInput) {
             if (strengthText) strengthText.innerHTML = '';
         } else {
             if (strengthContainer) strengthContainer.style.display = 'block';
-
             if (score <= 2) {
                 if (strengthBarFill) {
                     strengthBarFill.style.width = '33%';
                     strengthBarFill.style.backgroundColor = '#ff4d4d';
                 }
-                if (strengthText) {
-                    strengthText.innerHTML = '<span style="color:#ff4d4d;">Sécurité : Faible</span>';
-                }
+                if (strengthText) strengthText.innerHTML = '<span style="color:#ff4d4d;">Sécurité : Faible</span>';
             } else if (score <= 4) {
                 if (strengthBarFill) {
                     strengthBarFill.style.width = '66%';
                     strengthBarFill.style.backgroundColor = '#ffaa00';
                 }
-                if (strengthText) {
-                    strengthText.innerHTML = '<span style="color:#ffaa00;">Sécurité : Moyenne</span>';
-                }
+                if (strengthText) strengthText.innerHTML = '<span style="color:#ffaa00;">Sécurité : Moyenne</span>';
             } else {
                 if (strengthBarFill) {
                     strengthBarFill.style.width = '100%';
                     strengthBarFill.style.backgroundColor = '#00cc66';
                 }
-                if (strengthText) {
-                    strengthText.innerHTML = '<span style="color:#00cc66;">Sécurité : Forte</span>';
-                }
+                if (strengthText) strengthText.innerHTML = '<span style="color:#00cc66;">Sécurité : Forte</span>';
             }
         }
     });
 }
 
-// =========================================================================
-// 13. MISE À JOUR DU PANNEAU LATÉRAL
-// =========================================================================
-
 function updateSidePanelContent(data) {
     const specsGrid = document.getElementById('panel-specs-grid');
-    
     if (specsGrid && data && data.techDetails) {
-        // Les données viennent du tableau carData (source interne) -> innerHTML acceptable
         specsGrid.innerHTML = `
             <div class="spec-item">
                 <div><span>Moteur</span><p>${escapeHtml(data.techDetails.moteur || '')}</p></div>
@@ -749,16 +656,10 @@ function updateSidePanelContent(data) {
             </div>
             <div class="spec-item">
                 <div><span>0-100 km/h</span><p>${escapeHtml(data.techDetails.chrono || '')}</p></div>
-            </div>
-        `;
+            </div>`;
     }
 }
 
-// =========================================================================
-// 14. FORMULAIRES D'AUTHENTIFICATION (AVEC CSRF ET VALIDATION)
-// =========================================================================
-
-// --- CONNEXION ---
 const loginForm = document.getElementById('login-form');
 if (loginForm) {
     loginForm.addEventListener('submit', async function(e) {
@@ -767,7 +668,6 @@ if (loginForm) {
         const emailInput = loginForm.querySelector('input[name="email"]');
         const passwordInput = loginForm.querySelector('input[name="password"]');
 
-        // Validation côté client
         const email = emailInput ? emailInput.value.trim() : '';
         const password = passwordInput ? passwordInput.value : '';
 
@@ -781,9 +681,8 @@ if (loginForm) {
             return;
         }
 
-        // Récupérer le token CSRF si nécessaire
         if (!AppState.csrfToken) {
-            await fetchCsrfToken();
+            AppState.csrfToken = document.getElementById('global-csrf-token')?.value || null;
         }
 
         const formData = new FormData(loginForm);
@@ -791,7 +690,7 @@ if (loginForm) {
         addCsrfToken(formData);
 
         try {
-            const data = await secureFetch('api/main.php', {
+            const data = await secureFetch('auth_process.php', {
                 method: 'POST',
                 body: formData
             });
@@ -800,28 +699,28 @@ if (loginForm) {
                 AppState.isAuthenticated = true;
                 AppState.csrfToken = data.csrf_token;
                 
+                const inputHtmlToken = document.getElementById('global-csrf-token');
+                if (inputHtmlToken) inputHtmlToken.value = data.csrf_token;
+
                 if (authModal) authModal.classList.remove('active');
 
-                // Vérification du rôle reçu depuis la base de données
                 if (data.role === 'admin') {
-                    // Redirection instantanée vers le tableau de bord de l'administrateur
+                    alert('Accès Administrateur validé. Redirection...');
                     window.location.href = 'admin/dashboard.php'; 
                 } else {
-                    // Comportement normal pour un membre ou visiteur classique
                     alert('Connexion réussie ! Bienvenue sur l\'exposition.');
-                    location.reload(); 
+                    window.location.reload(true); 
                 }
             } else {
                 alert(data.message || 'Identifiants incorrects.');
             }
         } catch (err) {
-            console.error('Erreur:', err);
+            console.error('Détails complets de l\'erreur :', err);
             alert('Erreur de connexion au serveur.');
         }
     });
 }
 
-// --- INSCRIPTION ---
 const registerForm = document.getElementById('register-form');
 if (registerForm) {
     registerForm.addEventListener('submit', async function(e) {
@@ -832,7 +731,6 @@ if (registerForm) {
         const emailInput = registerForm.querySelector('input[name="email"]');
         const passwordInput = registerForm.querySelector('input[name="password"]');
 
-        // Validation côté client
         const prenom = prenomInput ? prenomInput.value.trim() : '';
         const nom = nomInput ? nomInput.value.trim() : '';
         const email = emailInput ? emailInput.value.trim() : '';
@@ -843,13 +741,8 @@ if (registerForm) {
             return;
         }
 
-        if (prenom.length > 50) {
-            alert('Le prénom ne peut pas dépasser 50 caractères.');
-            return;
-        }
-
-        if (nom.length > 50) {
-            alert('Le nom ne peut pas dépasser 50 caractères.');
+        if (prenom.length > 50 || nom.length > 50) {
+            alert('Le prénom et le nom ne peuvent pas dépasser 50 caractères.');
             return;
         }
 
@@ -863,21 +756,18 @@ if (registerForm) {
             return;
         }
 
-        // Vérification reCAPTCHA
         if (typeof grecaptcha !== 'undefined' && typeof grecaptcha.getResponse === 'function') {
             const recaptchaResponse = grecaptcha.getResponse();
             if (!recaptchaResponse || recaptchaResponse.length === 0) {
-                alert('Veuillez cocher la case reCAPTCHA pour valider la protection anti-bot.');
+                alert('Veuillez cocher la case reCAPTCHA.');
                 return;
             }
         }
 
-        // Récupérer le token CSRF si nécessaire
         if (!AppState.csrfToken) {
-            await fetchCsrfToken();
+            AppState.csrfToken = document.getElementById('global-csrf-token')?.value || null;
         }
 
-        // Sécuriser les champs texte (limiter la taille)
         const safePrenom = truncateText(prenom, 50);
         const safeNom = truncateText(nom, 50);
 
@@ -896,9 +786,12 @@ if (registerForm) {
             if (data.success) {
                 if (data.csrf_token) {
                     AppState.csrfToken = data.csrf_token;
+                    const inputHtmlToken = document.getElementById('global-csrf-token');
+                    if (inputHtmlToken) inputHtmlToken.value = data.csrf_token;
                 }
                 AppState.isAuthenticated = true;
-                window.location.reload();
+                alert('Votre compte a été créé avec succès !');
+                window.location.reload(true);
             } else {
                 alert(data.message || 'Erreur lors de la création du compte.');
             }
@@ -909,7 +802,6 @@ if (registerForm) {
     });
 }
 
-// --- DÉCONNEXION ---
 const logoutBtn = document.getElementById('logout-btn');
 if (logoutBtn) {
     logoutBtn.addEventListener('click', async function() {
@@ -924,26 +816,18 @@ if (logoutBtn) {
             });
             AppState.isAuthenticated = false;
             AppState.csrfToken = null;
-            window.location.reload();
+            window.location.reload(true);
         } catch (err) {
             console.error('Erreur:', err);
-            window.location.reload();
+            window.location.reload(true);
         }
     });
 }
-
-// =========================================================================
-// 15. CONTRÔLE AUDIO
-// =========================================================================
 
 const playSoundBtn = document.getElementById('play-sound-btn');
 if (playSoundBtn) {
     playSoundBtn.addEventListener('click', playVehicleSound);
 }
-
-// =========================================================================
-// 16. GESTION DU REDIMENSIONNEMENT
-// =========================================================================
 
 window.addEventListener('resize', () => {
     if (container && renderer) {
@@ -955,35 +839,25 @@ window.addEventListener('resize', () => {
     }
 });
 
-// =========================================================================
-// 17. ANIMATION THREE.JS
-// =========================================================================
-
 function animate() {
     requestAnimationFrame(animate);
     if (controls) controls.update();
     if (renderer && scene && camera) renderer.render(scene, camera);
 }
 
-// =========================================================================
-// 18. INITIALISATION DE L'APPLICATION
-// =========================================================================
-
 async function initApp() {
-    // Récupérer le token CSRF au démarrage
-    await fetchCsrfToken();
-
-    // Vérifier si l'utilisateur est connecté (vérification via un appel API ou état initial)
-    if (document.body.dataset.authenticated === 'true') {
+    if (document.body.dataset.authenticated === 'true' || document.getElementById('profile-trigger') === null) {
         AppState.isAuthenticated = true;
     }
+    
+    if (!AppState.csrfToken) {
+        AppState.csrfToken = document.getElementById('global-csrf-token')?.value || null;
+    }
 
-    // Charger le premier véhicule et démarrer l'animation
     await changeVehicle(0);
     animate();
 }
 
-// Démarrer l'application quand le DOM est prêt
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);
 } else {

@@ -1,4 +1,7 @@
 <?php
+// On inclut le fichier de configuration qui démarre la session et crée la fonction
+require_once 'config/database.php';
+
 // On s'assure d'avoir la session ouverte pour lire l'état de connexion
 if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.cookie_httponly', 1);
@@ -22,9 +25,8 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
     <title>Scuderia Ferrari Exhibition</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-
+    <input type="hidden" id="global-csrf-token" value="<?php echo generate_csrf_token(); ?>">
     <script type="importmap">
     {
         "imports": {
@@ -326,7 +328,18 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
                     <img src="<?php echo htmlspecialchars($user_avatar, ENT_QUOTES, 'UTF-8'); ?>" alt="Avatar" class="profile-large-avatar">
                     <h2><?php echo htmlspecialchars($user_prenom . ' ' . $user_nom); ?></h2>
                     <p class="profile-email"><i class="fa-solid fa-envelope"></i> <?php echo htmlspecialchars($user_email); ?></p>
-                    <p class="profile-role"><i class="fa-solid fa-shield-halved"></i> Statut : <span><?php echo htmlspecialchars($_SESSION['user']['role'] ?? 'Membre'); ?></span></p>
+                    <p class="profile-role">
+                        <i class="fa-solid fa-shield-halved"></i> Statut : 
+                        <span style="font-weight: bold; color: <?php echo (isset($_SESSION['user']['role']) && $_SESSION['user']['role'] === 'admin') ? '#ff2828' : '#ffffff'; ?>;">
+                            <?php 
+                                if (isset($_SESSION['user']['role']) && $_SESSION['user']['role'] === 'admin') {
+                                    echo 'Administrateur';
+                                } else {
+                                    echo 'Membre';
+                                }
+                            ?>
+                        </span>
+                    </p>
                     
                     <div class="user-activity-section">
                         <h3><i class="fa-regular fa-comments"></i> Mes avis publiés</h3>

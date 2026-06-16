@@ -1,179 +1,241 @@
-// Stockage global des avis chargés pour appliquer les filtres sans réinterroger l'API
-let allReviews = [];
+/**
+ * Scuderia Ferrari - Script d'Administration de la Modération
+ */
 
-document.addEventListener('DOMContentLoaded', () => {
-    loadDashboardReviews();
+// Nom complet des véhicules calqué sur la structure globale de l'application
+const carNames = {
+    0: "Monza SP3 Evo",
+    1: "SF100 Vision",
+    2: "F42 Aperta"
+};
 
-    // Écouteur sur le filtre d'étoiles
-    const starFilter = document.getElementById('star-filter');
-    if (starFilter) {
-        starFilter.addEventListener('change', () => {
-            renderReviews(starFilter.value);
-        });
-    }
-});
+// Variable pour conserver les données brutes des avis reçues du serveur
+let localCommentsCached = [];
+const csrfToken = document.getElementById('admin-csrf')?.value || null;
 
-// Chargement initial des avis depuis l'API PHP
-function loadDashboardReviews() {
-    fetch('../api/main.php?action=getAdminReviews')
-        .then(res => res.json())
-        .then(data => {
-            if (data && data.success) {
-                allReviews = data.reviews || [];
-                renderReviews('all');
-            } else {
-                document.getElementById('dashboard-container').innerHTML = 
-                    `<p style="color:#ff2828; text-align:center;">Erreur : ${data.message || 'Impossible de charger les avis.'}</p>`;
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            document.getElementById('dashboard-container').innerHTML = 
-                '<p style="color:#ff2828; text-align:center;">Erreur de communication avec l\'API.</p>';
-        });
+/**
+ * Fonction utilitaire d'échappement HTML contre les failles XSS
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    return text.toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
-// Fonction de rendu avec regroupement par modèle et filtrage par note
-function renderReviews(starCriterion) {
+/**
+ * Charge l'ensemble des commentaires depuis l'API d'administration
+ */
+function loadAdminDashboard() {
     const container = document.getElementById('dashboard-container');
     if (!container) return;
 
-    if (allReviews.length === 0) {
-        container.innerHTML = '<p style="text-align:center; opacity:0.5;">Aucun avis enregistré dans la base de données.</p>';
+    fetch('admin_process.php?action=getAllComments')
+        .then(response => {
+            if (!response.ok) throw new Error('Erreur serveur');
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && Array.isArray(data.comments)) {
+                localCommentsCached = data.comments;
+                renderDashboard('all'); // Rendu initial : aucun filtre appliqué
+            } else {
+                container.innerHTML = `<p style="text-align:center; color:#ff2828;">${escapeHtml(data.message || 'Erreur lors de la récupération des données.')}</p>`;
+            }
+        })
+        .catch(err => {
+            console.error('Erreur Modération:', err);
+            container.innerHTML = '<p style="text-align:center; color:#ff2828;">Impossible de joindre l\'API d\'administration.</p>';
+        });
+}
+
+/**
+ * Génère le rendu graphique des statistiques, des groupes et des avis
+ * @param {string|number} starFilterCriterion - 'all' ou une note de 1 à 5
+ */
+function renderDashboard(starFilterCriterion) {
+    const container = document.getElementById('dashboard-container');
+    if (!container) return;
+
+    // 1. Filtrage initial des commentaires selon le choix de l'admin
+    let filteredComments = localCommentsCached;
+    if (starFilterCriterion !== 'all') {
+        const targetStars = parseInt(starFilterCriterion);
+        filteredComments = localCommentsCached.filter(c => parseInt(c.rating) === targetStars);
+    }
+
+    // 2. Calcul des métriques statistiques globales
+    const totalAvisCount = localCommentsCached.length;
+    const totalMasquesCount = localCommentsCached.filter(c => parseInt(c.is_deleted) === 1).length;
+    
+    let sumRatings = 0;
+    localCommentsCached.forEach(c => sumRatings += parseInt(c.rating));
+    const averageRating = totalAvisCount > 0 ? (sumRatings / totalAvisCount).toFixed(1) : '0.0';
+
+    // Génération HTML de la zone des statistiques
+    let htmlContent = `
+        <div class="dashboard-meta">
+            <div class="stat-card">
+                <h4>Total Avis Publiés</h4>
+                <div class="count">${totalAvisCount}</div>
+            </div>
+            <div class="stat-card">
+                <h4>Avis Masqués / Signalés</h4>
+                <div class="count" style="color: #ffaa00;">${totalMasquesCount}</div>
+            </div>
+            <div class="stat-card">
+                <h4>Note Moyenne Globale</h4>
+                <div class="count" style="color: #00cc66;">${averageRating} <span style="font-size:14px; color:#555;">/5</span></div>
+            </div>
+        </div>
+    `;
+
+    if (filteredComments.length === 0) {
+        htmlContent += '<p style="text-align:center; opacity:0.4; padding: 40px 0;">Aucun avis ne correspond à ce critère de recherche.</p>';
+        container.innerHTML = htmlContent;
         return;
     }
 
-    // 1. Filtrer les avis selon le critère d'étoiles sélectionné
-    const filteredReviews = allReviews.filter(r => {
-        if (starCriterion === 'all') return true;
-        return parseInt(r.note) === parseInt(starCriterion);
-    });
-
-    if (filteredReviews.length === 0) {
-        container.innerHTML = '<p style="text-align:center; opacity:0.5; padding: 40px;">Aucun avis ne correspond à ce filtre d\'étoiles.</p>';
-        return;
-    }
-
-    // 2. Grouper les avis filtrés par Modèle de Voiture
-    const groupedByCar = {};
-    filteredReviews.forEach(review => {
-        const modelName = review.voiture_modele;
-        if (!groupedByCar[modelName]) {
-            groupedByCar[modelName] = [];
+    // 3. Regroupement intelligent des avis par index de véhicule
+    const groupedByVehicle = {};
+    filteredComments.forEach(comment => {
+        const vIndex = comment.vehicle_index;
+        if (!groupedByVehicle[vIndex]) {
+            groupedByVehicle[vIndex] = [];
         }
-        groupedByCar[modelName].push(review);
+        groupedByVehicle[vIndex].push(comment);
     });
 
-    // 3. Générer le code HTML propre
-    let html = '';
+    // 4. Construction de l'arbre HTML par modèle de voiture
+    Object.keys(groupedByVehicle).forEach(vIndex => {
+        const commentsInGroup = groupedByVehicle[vIndex];
+        const vehicleTitle = carNames[vIndex] || `Véhicule Prototype (#${vIndex})`;
 
-    for (const [carModel, reviewsList] of Object.entries(groupedByCar)) {
-        // "Voir le nombre d'avis global de chaque modèle" -> calculé via reviewsList.length
-        const totalCount = reviewsList.length;
-
-        html += `
+        htmlContent += `
             <div class="car-group">
                 <div class="car-group-header">
-                    <h2><i class="fa-solid fa-car"></i> ${carModel}</h2>
-                    <span class="global-badge">${totalCount} ${totalCount > 1 ? 'avis' : 'avis'}</span>
+                    <h2><i class="fa-solid fa-car"></i> ${escapeHtml(vehicleTitle)}</h2>
+                    <span class="global-badge">${commentsInGroup.length} avis</span>
                 </div>
                 <div class="review-list">
         `;
 
-        reviewsList.forEach(rev => {
-            let stars = '★'.repeat(rev.note) + '☆'.repeat(5 - rev.note);
-            const isFlaggedClass = parseInt(rev.is_flagged) === 1 ? 'flagged' : '';
-            const isFlaggedBtnDisabled = parseInt(rev.is_flagged) === 1 ? 'disabled' : '';
+        commentsInGroup.forEach(c => {
+            const isFlagged = parseInt(c.is_deleted) === 1;
+            const starsPattern = '★'.repeat(c.rating) + '☆'.repeat(5 - c.rating);
+            const authorFullName = `${escapeHtml(c.prenom)} ${escapeHtml(c.nom)}`;
 
-            html += `
-                <div class="review-row ${isFlaggedClass}" id="review-row-${rev.id}">
+            htmlContent += `
+                <div class="review-row ${isFlagged ? 'flagged' : ''}">
                     <div class="review-info">
-                        <h4>Par ${rev.prenom} ${rev.nom.charAt(0)}. (${rev.email})</h4>
-                        <div class="stars">${stars}</div>
-                        <p>" ${rev.commentaire} "</p>
+                        <h4>${authorFullName} ${isFlagged ? '<span style="color:#ffaa00; font-size:11px; margin-left:10px;"><i class="fa-solid fa-eye-slash"></i> Masqué du public</span>' : ''}</h4>
+                        <div class="stars">${starsPattern}</div>
+                        <p>" ${escapeHtml(c.comment)} "</p>
                     </div>
                     <div class="review-actions">
-                        <button class="btn-action btn-flag" ${isFlaggedBtnDisabled} onclick="flagReview(${rev.id})">
-                            <i class="fa-solid fa-triangle-exclamation"></i> ${parseInt(rev.is_flagged) === 1 ? 'Signalé' : 'Signaler'}
+                        <button class="btn-action btn-flag" data-id="${c.id}" ${isFlagged ? 'disabled' : ''}>
+                            <i class="fa-solid fa-eye-slash"></i> Masquer
                         </button>
-                        <button class="btn-action btn-delete" onclick="deleteReview(${rev.id})">
-                            <i class="fa-solid fa-trash"></i> Supprimer
+                        <button class="btn-action btn-delete" data-id="${c.id}">
+                            <i class="fa-solid fa-trash-can"></i> Supprimer
                         </button>
                     </div>
                 </div>
             `;
         });
 
-        html += `
+        htmlContent += `
                 </div>
             </div>
         `;
+    });
+
+    container.innerHTML = htmlContent;
+
+    // 5. Attachement dynamique des écouteurs d'événements sur les actions de modération
+    bindModerationButtons();
+}
+
+/**
+ * Attache les clics d'actions aux boutons Masquer et Supprimer
+ */
+function bindModerationButtons() {
+    const container = document.getElementById('dashboard-container');
+    if (!container) return;
+
+    // Gestion de l'action : Masquer un avis (Soft delete)
+    container.querySelectorAll('.btn-flag').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const commentId = this.dataset.id;
+            executeModerationAction('flagComment', commentId);
+        });
+    });
+
+    // Gestion de l'action : Supprimer un avis (Hard delete de la base)
+    container.querySelectorAll('.btn-delete').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const commentId = this.dataset.id;
+            if (confirm('ATTENTION : Voulez-vous définitivement supprimer cet avis de la base de données ? Cette action est irréversible.')) {
+                executeModerationAction('deleteComment', commentId);
+            }
+        });
+    });
+}
+
+/**
+ * Envoie la requête POST sécurisée par CSRF au contrôleur PHP
+ * @param {string} actionName - 'flagComment' ou 'deleteComment'
+ * @param {number|string} id - Identifiant de l'avis cible
+ */
+function executeModerationAction(actionName, id) {
+    if (!csrfToken) {
+        alert('Jeton de sécurité CSRF manquant. Veuillez rafraîchir la page.');
+        return;
     }
 
-    container.innerHTML = html;
-}
-
-// Action : Supprimer un avis
-function deleteReview(reviewId) {
-    if (!confirm('Voulez-vous vraiment supprimer définitivement cet avis ?')) return;
-
-    const csrfToken = document.getElementById('admin-csrf').value;
     const formData = new FormData();
-    formData.append('action', 'deleteReview');
-    formData.append('id', reviewId);
+    formData.append('action', actionName);
+    formData.append('comment_id', id);
     formData.append('csrf_token', csrfToken);
 
-    fetch('../api/main.php', {
+    fetch('admin_process.php', {
         method: 'POST',
         body: formData
     })
-    .then(res => res.json())
+    .then(response => {
+        if (!response.ok) throw new Error('Erreur réseau');
+        return response.json();
+    })
     .then(data => {
-        if (data && data.success) {
-            // Mise à jour de notre tableau local et réaffichage fluide
-            allReviews = allReviews.filter(r => r.id !== reviewId);
-            const currentFilter = document.getElementById('star-filter').value;
-            renderReviews(currentFilter);
+        if (data.success) {
+            alert(data.message);
+            // Rechargement immédiat des données pour garder le tableau de bord synchronisé
+            loadAdminDashboard();
         } else {
-            alert(data.message || 'Erreur lors de la suppression.');
+            alert(data.message || 'Une erreur est survenue lors de l\'action.');
         }
     })
-    .catch(err => console.error(err));
+    .catch(err => {
+        console.error('Erreur action admin:', err);
+        alert('Impossible de communiquer avec le serveur pour valider la modération.');
+    });
 }
 
-// Action : Signaler un avis + Notification
-function flagReview(reviewId) {
-    const reason = prompt(
-        "Spécifiez un motif d'avertissement pour l'utilisateur (il recevra ce texte sous forme de notification) :", 
-        "Votre avis a été signalé par l'équipe de modération pour non-respect des règles de notre vitrine."
-    );
-    
-    if (reason === null) return; // Annulation
+// -------------------------------------------------------------------------
+// INITIALISATION ET GESTION DES FILTRES DU DOM
+// -------------------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', () => {
+    // Lancement du chargement initial
+    loadAdminDashboard();
 
-    const csrfToken = document.getElementById('admin-csrf').value;
-    const formData = new FormData();
-    formData.append('action', 'flagReview');
-    formData.append('id', reviewId);
-    formData.append('message', reason);
-    formData.append('csrf_token', csrfToken);
-
-    fetch('../api/main.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data && data.success) {
-            alert('Avis signalé ! L\'utilisateur a été averti sur son espace personnel.');
-            // Mettre à jour l'état de l'avis localement pour changer le visuel à l'écran
-            const revIdx = allReviews.findIndex(r => r.id === reviewId);
-            if (revIdx !== -1) allReviews[revIdx].is_flagged = 1;
-            
-            const currentFilter = document.getElementById('star-filter').value;
-            renderReviews(currentFilter);
-        } else {
-            alert(data.message || 'Erreur lors du signalement.');
-        }
-    })
-    .catch(err => console.error(err));
-}
+    // Écouteur sur le menu déroulant de filtrage par note
+    const starFilterSelector = document.getElementById('star-filter');
+    if (starFilterSelector) {
+        starFilterSelector.addEventListener('change', function() {
+            renderDashboard(this.value);
+        });
+    }
+});

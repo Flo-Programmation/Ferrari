@@ -139,13 +139,13 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
 </head>
 <body data-authenticated="<?php echo $isAuthenticated; ?>">
 
-    <video src="assets/videos/video.mp4" autoplay loop muted playsinline id="bg-video"></video>
+    <video src="assets/videos/4K-Cinematic.mp4" autoplay loop muted playsinline id="bg-video"></video>
 
     <nav class="navbar">
         <div class="nav-left">
             <a href="#showroom" style="display: flex; align-items: center; gap: 15px; text-decoration: none; color: inherit;">
-                <img src="https://upload.wikimedia.org/wikipedia/fr/thumb/c/c0/Scuderia_Ferrari_Logo.svg/500px-Scuderia_Ferrari_Logo.svg.png" alt="Ferrari Logo" class="brand-logo">
-                <span class="brand-name">Ferrari</span>
+                <img src="assets/images/logo.png" alt="Ferrari Logo" class="brand-logo">
+                <span class="brand-name">Porsche</span>
             </a>
         </div>
         <div class="nav-right" style="display: flex; align-items: center;">
@@ -462,8 +462,8 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
         <div class="footer-top-grid">
             <div class="footer-about-block">
                 <div class="footer-logo-layout">
-                    <div class="f-badge">F</div>
-                    <h3>Ferrari Future</h3>
+                    <div class="f-badge">P</div>
+                    <h3>Porsche Future</h3>
                 </div>
                 <p>Repoussant les limites de la performance automobile depuis 1947. L'avenir du luxe sportif commence ici.</p>
                 <div class="footer-social-medias">

@@ -941,7 +941,8 @@ body {
    STYLE DE LA SECTION CONTACT
    ========================================================================= */
 .section-contact {
-    background: url('../images/img-form.webp') center center / cover no-repeat;
+    /* background: url('../images/bg.jpg') center center / cover no-repeat; */
+    background: transparent;
     position: relative;
     z-index: 2;
     padding: 60px 40px;

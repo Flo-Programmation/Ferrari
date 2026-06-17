@@ -119,24 +119,47 @@ if (container) {
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
+
+    // --- RENDU LUMINEUX AMÉLIORÉ ---
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; 
+    renderer.toneMappingExposure = 1.0;                
+    
     container.appendChild(renderer.domElement);
 }
 
-scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-const lightTop = new THREE.DirectionalLight(0xffffff, 2.5);
-lightTop.position.set(0, 8, 2);
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+pmremGenerator.compileEquirectangularShader();
+const neutralEnv = pmremGenerator.fromScene(new THREE.Scene()).texture;
+scene.environment = neutralEnv; 
+pmremGenerator.dispose();
+
+// --- LUMIÈRES RECONFIGURÉES ---
+scene.add(new THREE.AmbientLight(0xffffff, 0.6)); // Ambiante plus douce pour ne pas aplatir l'image
+
+const lightTop = new THREE.DirectionalLight(0xffffff, 3.0); // Lumière principale décalée
+lightTop.position.set(2, 8, 4);
 scene.add(lightTop);
+
+const lightFill = new THREE.DirectionalLight(0xffffff, 1.2); // Lumière secondaire pour déboucher les ombres sur le flanc
+lightFill.position.set(-4, 3, -2);
+scene.add(lightFill);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 controls.enablePan = false;
+
+// Distances de zoom autorisées
 controls.minDistance = 3.5;
 controls.maxDistance = 6.5;
-controls.minAzimuthAngle = -Math.PI / 5;
-controls.maxAzimuthAngle = Math.PI / 5;
-controls.minPolarAngle = Math.PI / 2.5;
-controls.maxPolarAngle = Math.PI / 1.95;
+
+// --- ROTATION HORIZONTALE COMPLÈTE (360°) ---
+// En supprimant minAzimuthAngle et maxAzimuthAngle, l'utilisateur peut tourner indéfiniment autour de l'objet.
+
+// --- ROTATION VERTICALE ADAPTÉE ---
+// On élargit les angles pour pouvoir regarder un peu plus en haut et en bas sans passer sous le sol.
+controls.minPolarAngle = Math.PI / 4;   // Permet de voir la voiture de plus haut (vue plongeante)
+controls.maxPolarAngle = Math.PI / 2.1; // S'arrête juste au niveau du sol pour éviter de voir le dessous du modèle
 
 const loader = new GLTFLoader();
 
@@ -151,6 +174,19 @@ function loadVehicleModel(index) {
         }
         loader.load(carData[index].model, (gltf) => {
             const model = gltf.scene;
+
+            // --- INTENSIFICATION DES REFLETS PHYSIQUES ---
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    if (child.material) {
+                        child.material.envMapIntensity = 1.5; // Ajustez entre 1.0 et 2.0 selon la brillance voulue
+                        child.material.needsUpdate = true;
+                    }
+                }
+            });
+
             const group = new THREE.Group();
             group.add(model);
 

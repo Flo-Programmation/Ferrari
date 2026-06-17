@@ -1,2 +1,138 @@
 Captcha clé public : 
 6LeZCSAtAAAAAKk9ITa_lNnsUz5W_R1WTum9jPag
+
+
+├── 📁 admin
+│   ├── 🐘 admin_process.php
+│   └── 🐘 dashboard.php
+├── 📁 api
+│   └── 🐘 main.php
+├── 📁 assets
+│   ├── 📁 css
+│   │   ├── 🎨 auth.css
+│   │   └── 🎨 style.css
+│   ├── 📁 images
+│   │   ├── 🖼️ SUV.png
+│   │   └── 🖼️ img-form.webp
+│   ├── 📁 js
+│   │   ├── 📄 admin.js
+│   │   └── 📄 main.js
+│   ├── 📁 models
+│   │   ├── 📄 2022_ferrari_296_gtb.glb
+│   │   ├── 📄 599obj.glb
+│   │   ├── 📄 ferrari.glb
+│   │   ├── 📄 ferrari_bleu.glb
+│   │   └── 📄 suv.glb
+│   ├── 📁 sounds
+│   │   └── 🎵 ferrariEngine.wav
+│   └── 📁 videos
+│       └── 🎬 video.mp4
+├── 📁 config
+│   └── 🐘 database.php
+├── 📁 includes
+│   ├── 🐘 footer.php
+│   └── 🐘 header.php
+├── 📁 pages
+│   ├── 🐘 login.php
+│   ├── 🐘 logout.php
+│   ├── 🐘 profil.php
+│   └── 🐘 register.php
+├── ⚙️ .hintrc
+├── 🐘 auth_process.php
+├── 🐘 index.php
+└── 📄 readme
+
+
+
+-- Création de la base de données
+CREATE DATABASE IF NOT EXISTS ferrari_vitrine;
+USE ferrari_vitrine;
+
+-- Table USERS
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nom VARCHAR(100) NOT NULL,
+    prenom VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,  -- password_hash() génère des strings de 255 chars
+    avatar_url VARCHAR(500) DEFAULT NULL,
+    role ENUM('user', 'admin') DEFAULT 'user',
+    created_at DATETIME DEFAULT NOW()
+);
+
+-- Table VOITURE (corrigée : annee, vitesse_max, moteur)
+CREATE TABLE voiture (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    modele VARCHAR(100) NOT NULL,
+    annee INT NOT NULL,
+    puissance_ch INT NOT NULL,
+    vitesse_max INT NOT NULL,
+    moteur VARCHAR(100) NOT NULL,
+    prix DECIMAL(10,2) NOT NULL,
+    description TEXT DEFAULT NULL,
+    glb_url VARCHAR(500) NOT NULL,       -- Chemin vers ton .glb (ex: /assets/models/ferrari296.glb)
+    sound_url VARCHAR(500) DEFAULT NULL, -- Chemin vers ton son (ex: /assets/sounds/ferrariEngine.wav)
+    image_url VARCHAR(500) DEFAULT NULL, -- Fallback mobile
+    created_at DATETIME DEFAULT NOW()
+);
+
+-- Table AVIS (ajoutée, manquante dans ton CDC)
+CREATE TABLE avis (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    voiture_id INT NOT NULL,
+    note TINYINT NOT NULL CHECK (note BETWEEN 1 AND 5),
+    commentaire TEXT,
+    is_flagged TINYINT(1) DEFAULT 0,
+    is_deleted TINYINT(1) DEFAULT 0,
+    created_at DATETIME DEFAULT NOW(),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (voiture_id) REFERENCES voiture(id) ON DELETE CASCADE
+);
+
+-- Table MESSAGES (corrigée : coontent -> content)
+CREATE TABLE messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    content TEXT NOT NULL,
+    is_flagged TINYINT(1) DEFAULT 0,
+    is_deleted TINYINT(1) DEFAULT 0,
+    created_at DATETIME DEFAULT NOW(),
+    updated_at DATETIME ON UPDATE NOW(),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Table CONTACT_REQUESTS
+CREATE TABLE contact_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nom VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    sujet VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    is_read TINYINT(1) DEFAULT 0,
+    created_at DATETIME DEFAULT NOW()
+);
+
+-- Index pour optimisation
+CREATE UNIQUE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_avis_user ON avis(user_id);
+CREATE INDEX idx_avis_voiture ON avis(voiture_id);
+CREATE INDEX idx_avis_deleted ON avis(is_deleted);
+CREATE INDEX idx_avis_flagged ON avis(is_flagged);
+CREATE INDEX idx_cr_read ON contact_requests(is_read);
+CREATE INDEX idx_cr_date ON contact_requests(created_at);
+
+-- Peuplement minimal pour tester (à remplacer par TES données)
+INSERT INTO users (nom, prenom, email, password, role) VALUES
+('Admin', 'Ferrari', 'admin@ferrari.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin'),
+('Dupont', 'Marc', 'marc.dupont@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user');
+
+INSERT INTO voiture (modele, annee, puissance_ch, vitesse_max, moteur, prix, glb_url, sound_url, image_url) VALUES
+('Monza SP3 EVO', 2023, 830, 340, 'V12 Atmosphérique 6.5L', 2500000.00, '/assets/models/monza_sp3.glb', '/assets/sounds/ferrariEngine.wav', '/assets/images/monza_sp3.jpg'),
+('SF90 Stradale', 2022, 1000, 340, 'V8 Bi-Turbo Hybride', 430000.00, '/assets/models/sf90.glb', '/assets/sounds/sf90_engine.wav', '/assets/images/sf90.jpg'),
+('296 GTB', 2022, 830, 330, 'V6 Bi-Turbo Hybride', 350000.00, '/assets/models/296_gtb.glb', '/assets/sounds/296_engine.wav', '/assets/images/296_gtb.jpg');
+
+INSERT INTO avis (user_id, voiture_id, note, commentaire) VALUES
+(2, 1, 5, 'Une expérience de conduite inoubliable. La Monza SP3 EVO est une œuvre d''art.'),
+(2, 2, 4, 'Puissance impressionnante, mais le prix est prohibitif.');

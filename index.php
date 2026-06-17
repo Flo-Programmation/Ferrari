@@ -291,7 +291,7 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
                     <h3 class="telemetry-title">Laisser un avis</h3>
 
                     <?php if (isset($_SESSION['user'])): ?>
-                    <form id="leave-review-form" class="custom-review-form" onsubmit="event.preventDefault();">
+                    <form id="leave-review-form" class="custom-review-form">
                         <input type="hidden" name="action" value="add">
                         <input type="hidden" id="review-vehicle-index" name="vehicle_index" value="0">
 

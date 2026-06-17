@@ -35,6 +35,7 @@ function verify_csrf_token(?string $token): bool {
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $action = $_GET['action'] ?? '';
 
+    // Récupérer les avis d'un véhicule spécifique
     if ($action === 'get') {
         $vehicle_index = (int)($_GET['vehicle_index'] ?? 0);
         try {
@@ -51,11 +52,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             echo json_encode(['success' => true, 'comments' => $comments], JSON_UNESCAPED_UNICODE);
             exit;
         } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => 'Erreur de chargement : ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['success' => false, 'message' => 'Erreur de chargement.'], JSON_UNESCAPED_UNICODE);
             exit;
         }
     }
 
+    // Récupérer l'historique des avis de l'utilisateur connecté
     if ($action === 'getUserComments') {
         if (empty($_SESSION['user']['id'])) {
             echo json_encode(['success' => false, 'message' => 'Utilisateur non connecté.'], JSON_UNESCAPED_UNICODE);
@@ -75,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             echo json_encode(['success' => true, 'my_comments' => $my_comments], JSON_UNESCAPED_UNICODE);
             exit;
         } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => 'Erreur d\'activité : ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['success' => false, 'message' => 'Erreur d\'activité.'], JSON_UNESCAPED_UNICODE);
             exit;
         }
     }
@@ -93,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // --- INSCRIPTION & CONNEXION ---
+    // --- INSCRIPTION ---
     if ($action === 'register') {
         $prenom = trim($_POST['prenom'] ?? '');
         $nom = trim($_POST['nom'] ?? '');
@@ -160,6 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    // --- CONNEXION ---
     elseif ($action === 'login') {
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
@@ -200,7 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // --- FORMULAIRE DE CONTACT (AVEC ACCUSÉ DE RÉCEPTION) ---
+    // --- FORMULAIRE DE CONTACT ---
     elseif ($action === 'contact') {
         $nom = trim($_POST['nom'] ?? '');
         $email = trim($_POST['email'] ?? '');
@@ -219,81 +222,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         try {
-            // 1. Insertion en Base de Données
             $stmt = $bdd->prepare("
                 INSERT INTO contact_requests (nom, email, telephone, sujet, message) 
                 VALUES (?, ?, ?, ?, ?)
             ");
             $stmt->execute([$nom, $email, !empty($telephone) ? $telephone : null, $sujet, $message]);
 
-            // 2. ENVOI DU MAIL AUTOMATIQUE AU CLIENT
             $to = $email;
             $email_subject = "Accusé de réception : " . $sujet;
-            
-            // Entêtes pour envoyer un mail propre au format HTML
-            $headers = "MIME-Version: 1.0" . "\r\n";
-            $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
-            $headers .= "From: Scuderia Ferrari Exposition <no-reply@votre-domaine.com>" . "\r\n";
+            $headers = "MIME-Version: 1.0\r\nContent-type:text/html;charset=UTF-8\r\nFrom: Showcase <no-reply@votre-domaine.com>\r\n";
 
-            // Corps du mail au design élégant (Dark mode type Ferrari)
-            $email_body = "
-            <html>
-            <head>
-                <style>
-                    body { font-family: Arial, sans-serif; background-color: #0b0b0b; color: #ffffff; padding: 20px; }
-                    .container { max-width: 600px; background-color: #141414; border: 1px solid #222; padding: 30px; border-radius: 8px; margin: 0 auto; }
-                    .header { border-bottom: 2px solid #ff2828; padding-bottom: 15px; margin-bottom: 20px; }
-                    h2 { color: #ff2828; margin: 0; }
-                    .content { font-size: 14px; line-height: 1.6; color: #ccccce; }
-                    .recap { background-color: #1c1c1c; padding: 15px; border-radius: 5px; margin-top: 20px; border-left: 3px solid #ffaa00; }
-                    .footer { font-size: 11px; color: #555; text-align: center; margin-top: 30px; }
-                </style>
-            </head>
-            <body>
-                <div class='container'>
-                    <div class='header'>
-                        <h2>Scuderia Ferrari - Showroom</h2>
-                    </div>
-                    <div class='content'>
-                        <p>Bonjour <strong>" . htmlspecialchars($nom) . "</strong>,</p>
-                        <p>Nous vous confirmons la bonne réception de votre message. Notre équipe d'ingénieurs et de conseillers va l'étudier avec la plus grande attention.</p>
-                        <p>Vous recevrez une réponse personnalisée sous un délai de 24 heures.</p>
-                        
-                        <div class='recap'>
-                            <strong>Rappel de votre demande :</strong><br>
-                            <span style='color:#ffaa00;'>Sujet :</span> " . htmlspecialchars($sujet) . "<br>
-                            <span style='color:#ffaa00;'>Message :</span><br>
-                            <em>\"" . nl2br(htmlspecialchars($message)) . "\"</em>
-                        </div>
-                    </div>
-                    <div class='footer'>
-                        Ceci est un message automatique, merci de ne pas y répondre directement.<br>
-                        © " . date('Y') . " Ferrari Vitrine Showcase. Tous droits réservés.
-                    </div>
-                </div>
-            </body>
-            </html>";
+            $email_body = "<html><body>
+                <p>Bonjour <strong>" . htmlspecialchars($nom) . "</strong>,</p>
+                <p>Nous vous confirmons la bonne réception de votre message.</p>
+                <p><em>\"" . nl2br(htmlspecialchars($message)) . "\"</em></p>
+            </body></html>";
 
-            // Envoi effectif du mail (ne bloque pas le script si l'envoi échoue)
             @mail($to, $email_subject, $email_body, $headers);
 
-            // 3. Réponse AJAX retournée au JavaScript
-            echo json_encode(['success' => true, 'message' => 'Votre message a été transmis ! Un e-mail de confirmation vous a été envoyé.'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['success' => true, 'message' => 'Votre message a été transmis !'], JSON_UNESCAPED_UNICODE);
             exit;
-
         } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => 'Erreur technique lors de l\'envoi du message : ' . $e->getMessage()]);
+            echo json_encode(['success' => false, 'message' => 'Erreur technique lors de l\'envoi du message.']);
             exit;
         }
     }
 
-    // --- AJOUTER UN AVIS ---
-    elseif ($action === 'add') {
-        if (empty($_SESSION['user']['id'])) {
-            echo json_encode(['success' => false, 'message' => 'Non connecté.']);
-            exit;
-        }
+    // --- TOUTES LES ACTIONS SUIVANTES NÉCESSITENT D'ÊTRE CONNECTÉ ---
+    if (empty($_SESSION['user']['id'])) {
+        echo json_encode(['success' => false, 'message' => 'Action non autorisée (non connecté).']);
+        exit;
+    }
 
+    // --- AJOUTER UN AVIS ---
+    if ($action === 'add') {
         $vehicle_index = (int)($_POST['vehicle_index'] ?? 0);
         $comment = trim($_POST['comment'] ?? '');
         $rating = min(5, max(1, (int)($_POST['rating'] ?? 5)));
@@ -309,18 +271,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['success' => true, 'message' => 'Votre avis a été enregistré !']);
             exit;
         } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => 'Erreur SQL : ' . $e->getMessage()]);
+            echo json_encode(['success' => false, 'message' => 'Erreur lors de l\'enregistrement de l\'avis.']);
             exit;
         }
     }
 
     // --- MODIFIER UN AVIS ---
     elseif ($action === 'edit') {
-        if (empty($_SESSION['user']['id'])) {
-            echo json_encode(['success' => false, 'message' => 'Action non autorisée.']);
-            exit;
-        }
-
         $comment_id = (int)($_POST['comment_id'] ?? 0);
         $comment = trim($_POST['comment'] ?? '');
         $rating = min(5, max(1, (int)($_POST['rating'] ?? 5)));
@@ -344,11 +301,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // --- SUPPRIMER UN AVIS ---
     elseif ($action === 'delete') {
-        if (empty($_SESSION['user']['id'])) {
-            echo json_encode(['success' => false, 'message' => 'Action non autorisée.']);
-            exit;
-        }
-
         $comment_id = (int)($_POST['comment_id'] ?? 0);
 
         try {

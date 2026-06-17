@@ -22,9 +22,10 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scuderia Ferrari Exhibition</title>
+    <title>Porsche Exhibition</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="assets/images/icon-site.png">
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <input type="hidden" id="global-csrf-token" value="<?php echo generate_csrf_token(); ?>">
     <script type="importmap">
@@ -196,6 +197,7 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
         visibility: hidden !important;
     }
 </style>
+
     <video src="assets/videos/4K-Cinematic.mp4" autoplay loop muted playsinline id="bg-video"></video>
 
     <nav class="navbar">
@@ -614,7 +616,7 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
             </div>
         </div>
         <div class="footer-bottom-bar">
-            <p>&copy; 2026 Ferrari Future. Tous droits réservés.</p>
+            <p>&copy; 2026 Porsche Future. Tous droits réservés.</p>
             <p>Conçu avec passion pour l'excellence automobile</p>
         </div>
     </footer>

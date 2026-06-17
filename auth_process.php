@@ -115,10 +115,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email_parts = explode('@', $email);
 $domain = end($email_parts);
 
-if (in_array($domain, ['gmail.com', 'outlook.fr', 'outlook.com'])) {
-            echo json_encode(['success' => false, 'message' => 'Seules les adresses @gmail.com, @outlook.fr et @outlook.com sont autorisées.']);
-            exit;
-        }
+// Ajout du "!" pour vérifier que le domaine N'EST PAS dans la liste
+if (!in_array($domain, ['gmail.com', 'outlook.fr', 'outlook.com'])) {
+    echo json_encode(['success' => false, 'message' => 'Seules les adresses @gmail.com, @outlook.fr et @outlook.com sont autorisées.']);
+    exit;
+}
 
         if (strlen($password) < 8) {
             echo json_encode(['success' => false, 'message' => 'Le mot de passe doit contenir au moins 8 caractères.']);

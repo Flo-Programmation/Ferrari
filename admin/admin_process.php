@@ -31,7 +31,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'GET') {
     $action = $_GET['action'] ?? '';
 
-    // ACTION EXISTANTE : Récupérer tous les avis
+    // ACTION : Récupérer tous les avis
     if ($action === 'getAllComments') {
         try {
             $stmt = $bdd->query("
@@ -49,7 +49,7 @@ if ($method === 'GET') {
             ");
             $comments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            echo json_encode(['success' => true, 'comments' => $comments]);
+            echo json_encode(['success' => true, 'comments' => $comments], JSON_UNESCAPED_UNICODE);
             exit;
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Erreur lors de la récupération des avis : ' . $e->getMessage()]);
@@ -57,13 +57,17 @@ if ($method === 'GET') {
         }
     }
 
-    // ACTION EXISTANTE : Récupérer tous les messages de contact
+    // ACTION : Récupérer tous les messages de contact
     if ($action === 'getAllMessages') {
         try {
-            $stmt = $bdd->query("SELECT id, nom, email, message, created_at, is_read FROM contact_requests ORDER BY id DESC");
+            $stmt = $bdd->query("SELECT id, nom, email, telephone, sujet, message, created_at, is_read FROM contact_requests ORDER BY id DESC");
             $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            echo json_encode(['success' => true, 'messages' => $messages]);
+            // Sécurité contre les caractères spéciaux ou émojis qui corrompent le JSON
+            echo json_encode(
+                ['success' => true, 'messages' => $messages], 
+                JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+            );
             exit;
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Erreur lors de la récupération : ' . $e->getMessage()]);
@@ -84,7 +88,7 @@ if ($method === 'POST') {
     }
 
     // =========================================================================
-    // SECTION A : MODÉRATION DES AVIS (CODES EXISTANTS CONSERVÉS)
+    // SECTION A : MODÉRATION DES AVIS
     // =========================================================================
     if ($action === 'flagComment' || $action === 'deleteComment') {
         $comment_id = intval($_POST['comment_id'] ?? 0);
@@ -121,25 +125,25 @@ if ($method === 'POST') {
     }
 
     // ACTION : Marquer un message comme lu
-if ($action === 'markMessageAsRead') {
-    $message_id = intval($_POST['message_id'] ?? 0);
-    if ($message_id <= 0) {
-        echo json_encode(['success' => false, 'message' => 'Identifiant de message invalide.']);
-        exit;
+    if ($action === 'markMessageAsRead') {
+        $message_id = intval($_POST['message_id'] ?? 0);
+        if ($message_id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Identifiant de message invalide.']);
+            exit;
+        }
+        try {
+            $stmt = $bdd->prepare("UPDATE contact_requests SET is_read = 1 WHERE id = ?");
+            $stmt->execute([$message_id]);
+            echo json_encode(['success' => true, 'message' => 'Message marqué comme lu.']);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur : ' . $e->getMessage()]);
+            exit;
+        }
     }
-    try {
-        $stmt = $bdd->prepare("UPDATE contact_requests SET is_read = 1 WHERE id = ?");
-        $stmt->execute([$message_id]);
-        echo json_encode(['success' => true, 'message' => 'Message marqué comme lu.']);
-        exit;
-    } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => 'Erreur : ' . $e->getMessage()]);
-        exit;
-    }
-}
 
     // =========================================================================
-    // SECTION B : GESTION DES VÉHICULES (NOUVELLES FONCTIONNALITÉS AJOUTÉES)
+    // SECTION B : GESTION DES VÉHICULES
     // =========================================================================
     
     // ACTION : Supprimer un modèle de véhicule
@@ -162,7 +166,7 @@ if ($action === 'markMessageAsRead') {
 
     // ACTION : Ajouter ou Modifier un modèle de véhicule
     if ($action === 'addVehicle' || $action === 'editVehicle') {
-        $id = intval($_POST['id'] ?? 0); // Servira uniquement pour la modification (edit)
+        $id = intval($_POST['id'] ?? 0);
         $modele = trim($_POST['modele'] ?? '');
         $moteur = trim($_POST['moteur'] ?? '');
         $puissance_ch = intval($_POST['puissance_ch'] ?? 0);
@@ -172,13 +176,11 @@ if ($action === 'markMessageAsRead') {
         $glb_url = trim($_POST['glb_url'] ?? '');
         $sound_url = trim($_POST['sound_url'] ?? '');
 
-        // Validation des champs obligatoires requis d'après ta structure
         if (empty($modele) || empty($moteur) || $puissance_ch <= 0 || $vitesse_max <= 0 || $annee <= 0 || empty($glb_url)) {
-            echo json_encode(['success' => false, 'message' => 'Veuillez remplir correctement tous les champs obligatoires (Modèle, Moteur, Puissance, Vitesse, Année, Fichier 3D).']);
+            echo json_encode(['success' => false, 'message' => 'Veuillez remplir correctement tous les champs obligatoires.']);
             exit;
         }
 
-        // Cas : Ajouter un nouveau modèle
         if ($action === 'addVehicle') {
             try {
                 $stmt = $bdd->prepare("
@@ -203,7 +205,6 @@ if ($action === 'markMessageAsRead') {
             }
         }
 
-        // Cas : Modifier un modèle existant
         if ($action === 'editVehicle') {
             if ($id <= 0) {
                 echo json_encode(['success' => false, 'message' => 'Identifiant de véhicule manquant pour la modification.']);
@@ -239,6 +240,59 @@ if ($action === 'markMessageAsRead') {
                 echo json_encode(['success' => false, 'message' => 'Erreur lors de la modification du modèle : ' . $e->getMessage()]);
                 exit;
             }
+        }
+    }
+
+    // ==========================================
+    // ACTION : MODIFIER UN UTILISATEUR (Correction de table -> users)
+    // ==========================================
+    if ($action === 'editUser') {
+        $userId = $_POST['id'] ?? null;
+        $prenom = trim($_POST['prenom'] ?? '');
+        $nom = trim($_POST['nom'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $role = trim($_POST['role'] ?? 'user');
+
+        if (!$userId || empty($prenom) || empty($nom) || empty($email)) {
+            echo json_encode(['success' => false, 'message' => 'Veuillez remplir tous les champs obligatoires.']);
+            exit;
+        }
+
+        try {
+            $stmt = $bdd->prepare("UPDATE users SET prenom = ?, nom = ?, email = ?, role = ? WHERE id = ?");
+            $success = $stmt->execute([$prenom, $nom, $email, $role, $userId]);
+            echo json_encode(['success' => $success, 'message' => $success ? 'Utilisateur modifié !' : 'Erreur lors de la mise à jour.']);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur SQL : ' . $e->getMessage()]);
+            exit;
+        }
+    }
+
+    // ==========================================
+    // ACTION : SUPPRIMER UN UTILISATEUR (Correction de table -> users)
+    // ==========================================
+    if ($action === 'deleteUser') {
+        $userId = $_POST['user_id'] ?? null;
+
+        if (!$userId) {
+            echo json_encode(['success' => false, 'message' => 'ID utilisateur manquant.']);
+            exit;
+        }
+
+        if (isset($_SESSION['user']['id']) && $_SESSION['user']['id'] == $userId) {
+            echo json_encode(['success' => false, 'message' => 'Vous ne pouvez pas détruire votre propre compte depuis le panel.']);
+            exit;
+        }
+
+        try {
+            $stmt = $bdd->prepare("DELETE FROM users WHERE id = ?");
+            $success = $stmt->execute([$userId]);
+            echo json_encode(['success' => $success, 'message' => $success ? 'Le compte a été rayé de la base de données.' : 'Erreur lors de la suppression.']);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur SQL : ' . $e->getMessage()]);
+            exit;
         }
     }
 }

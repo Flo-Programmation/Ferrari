@@ -456,7 +456,9 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
 
     <div class="hotspot-card hotspot-right" id="hotspot-injection" style="position: absolute; display: none; pointer-events: auto;">
         <div class="hotspot-pointer" style="width: 8px; height: 8px; background: #fff; border-radius: 50%; box-shadow: 0 0 0 6px rgba(255,255,255,0.15);"></div>
-        <svg class="hotspot-line" style="position: absolute; overflow: visible; pointer-events: none;"><line x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-dasharray="3 3"/></svg>
+        <svg class="hotspot-line" width="420" height="150" style="position: absolute; overflow: visible; pointer-events: none;">
+    <line x1="4" y1="4" x2="250" y2="-40" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-dasharray="3 3"/>
+</svg>
         <div class="hotspot-text" style="background: rgba(235, 237, 240, 0.96); border-left: 4px solid #d5001c; padding: 16px; width: 260px; border-radius: 2px; color: #1c1f22; font-size: 12px; font-family: sans-serif; box-shadow: 0 15px 35px rgba(0,0,0,0.4); backdrop-filter: blur(4px); line-height: 1.5;">
             <strong style="color: #1c1f22; display:block; margin-bottom:6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 13px;">02 / Injection Directe DFI</strong>
             Injecteurs piézo-électriques pulvérisant le carburant à 350 bars directement au centre de la chambre pour une combustion complète.
@@ -465,7 +467,9 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
 
     <div class="hotspot-card hotspot-right" id="hotspot-echappement" style="position: absolute; display: none; pointer-events: auto;">
         <div class="hotspot-pointer" style="width: 8px; height: 8px; background: #fff; border-radius: 50%; box-shadow: 0 0 0 6px rgba(255,255,255,0.15);"></div>
-        <svg class="hotspot-line" style="position: absolute; overflow: visible; pointer-events: none;"><line x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-dasharray="3 3"/></svg>
+        <svg class="hotspot-line" width="420" height="150" style="position: absolute; overflow: visible; pointer-events: none;">
+    <line x1="4" y1="4" x2="250" y2="-40" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-dasharray="3 3"/>
+</svg>
         <div class="hotspot-text" style="background: rgba(235, 237, 240, 0.96); border-left: 4px solid #d5001c; padding: 16px; width: 260px; border-radius: 2px; color: #1c1f22; font-size: 12px; font-family: sans-serif; box-shadow: 0 15px 35px rgba(0,0,0,0.4); backdrop-filter: blur(4px); line-height: 1.5;">
             <strong style="color: #1c1f22; display:block; margin-bottom:6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 13px;">04 / Échappement Dynamique</strong>
             Lignes hydroformées à contre-pression optimisée qui égalisent le flux des gaz, libérant la puissance et la signature sonore fine.
@@ -701,6 +705,6 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
             });
         });
     </script>
-    <script type="module" src="assets/js/main.js"></script>
+    <script type="module" src="assets/js/main.js" defer></script>
 </body>
 </html>

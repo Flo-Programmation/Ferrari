@@ -251,32 +251,49 @@ function animateEngine() {
   requestAnimationFrame(animateEngine);
   if (!engineActive) return;
   engineRenderer?.render(engineScene, engineCamera);
+  
   if (engineModel) {
     engineModel.rotation.y += 0.003;
     const w = engineContainer.clientWidth,
-      h = engineContainer.clientHeight,
-      list = getCachedHotspots();
+          h = engineContainer.clientHeight,
+          list = getCachedHotspots();
+          
     list.forEach((hItem) => {
       _vTarget
         .copy(hItem.targetPos)
         .applyQuaternion(engineModel.quaternion)
         .add(engineModel.position)
         .project(engineCamera);
+        
       const x = (_vTarget.x * 0.5 + 0.5) * w,
-        y = (_vTarget.y * -0.5 + 0.5) * h;
+            y = (_vTarget.y * -0.5 + 0.5) * h;
+            
+      // 1. On applique le positionnement 3D
       hItem.element.style.transform = `translate3d(${x}px, ${y}px, 0px)`;
-      if (!hItem.initialized && hItem.line && hItem.textBlock) {
-        hItem.line.setAttribute("width", "420");
-        hItem.line.setAttribute("height", "150");
-        hItem.textBlock.style.transform = hItem.isLeft
-          ? "translate3d(-660px, -60px, 0px)"
-          : "translate3d(400px, -60px, 0px)";
-        hItem.lineInner.setAttribute("x1", "4");
-        hItem.lineInner.setAttribute("y1", "4");
-        hItem.lineInner.setAttribute("x2", hItem.isLeft ? "-400" : "400");
-        hItem.lineInner.setAttribute("y2", "-40");
-        if (x > 0 && y > 0) hItem.initialized = true;
+      
+      // 2. CORRECTION : Si le point est bien dans l'écran, on force son affichage !
+      if (x > 0 && y > 0 && x < w && y < h) {
+        hItem.element.style.display = "block"; 
+      } else {
+        hItem.element.style.display = "none"; // Optionnel : masque si le point sort de l'écran
       }
+
+      if (!hItem.initialized && hItem.line && hItem.textBlock) {
+  hItem.line.setAttribute("width", "420");
+  hItem.line.setAttribute("height", "150");
+  
+  // On réduit le décalage à droite de 400px à 250px pour qu'il reste visible à l'écran
+  hItem.textBlock.style.transform = hItem.isLeft
+    ? "translate3d(-660px, -60px, 0px)"
+    : "translate3d(250px, -60px, 0px)"; 
+    
+  hItem.lineInner.setAttribute("x1", "4");
+  hItem.lineInner.setAttribute("y1", "4");
+  hItem.lineInner.setAttribute("x2", hItem.isLeft ? "-400" : "250");
+  hItem.lineInner.setAttribute("y2", "-40");
+  
+  if (x > 0 && y > 0) hItem.initialized = true;
+}
     });
   }
 }

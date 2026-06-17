@@ -127,6 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // --- INSCRIPTION ---
+    // --- INSCRIPTION ---
     if ($action === 'register') {
         $prenom = trim($_POST['prenom'] ?? '');
         $nom = trim($_POST['nom'] ?? '');
@@ -135,6 +136,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (empty($prenom) || empty($nom) || empty($email) || empty($password)) {
             json_response(false, 'Tous les champs sont requis.');
+        }
+
+        // --- CORRECTION : VERIFICATION DU FORMAT DE L'EMAIL ---
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            json_response(false, 'L\'adresse email saisie n\'est pas valide (ex: nom@domaine.com).');
         }
 
         if (strlen($password) < 8) {
@@ -153,14 +159,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $bdd->prepare("INSERT INTO users (prenom, nom, email, password, role) VALUES (?, ?, ?, ?, 'member')");
             $stmt->execute([$prenom, $nom, $email, $password_hash]);
 
-            $_SESSION['user_id'] = $bdd->lastInsertId();
+            // Récupération de l'ID généré
+            $new_user_id = $bdd->lastInsertId();
+
+            // Ouverture immédiate de la session de l'utilisateur
+            $_SESSION['user_id'] = $new_user_id;
             $_SESSION['prenom'] = $prenom;
             $_SESSION['nom'] = $nom;
             $_SESSION['role'] = 'member';
             
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
-            json_response(true, 'Compte créé avec succès !', ['csrf_token' => $_SESSION['csrf_token']]);
+            // CORRECTION : On renvoie les infos de session au JS pour qu'il puisse adapter l'interface directement
+            json_response(true, 'Compte créé avec succès !', [
+                'role' => 'member',
+                'prenom' => $prenom,
+                'nom' => $nom,
+                'csrf_token' => $_SESSION['csrf_token']
+            ]);
         } catch (Exception $e) {
             json_response(false, 'Erreur lors de la création de votre compte.');
         }

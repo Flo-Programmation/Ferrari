@@ -929,7 +929,8 @@ if (registerForm) {
         addCsrfToken(formData);
 
         try {
-            const data = await secureFetch('api/main.php', {
+            // CORRECTION 1 : On envoie vers auth_process.php qui contient les restrictions d'emails (@gmail.com, etc.)
+            const data = await secureFetch('auth_process.php', {
                 method: 'POST',
                 body: formData
             });
@@ -941,9 +942,15 @@ if (registerForm) {
                     if (inputHtmlToken) inputHtmlToken.value = data.csrf_token;
                 }
                 AppState.isAuthenticated = true;
-                alert('Votre compte a été créé avec succès !');
-                window.location.reload(true);
+                
+                alert('Votre compte a été créé avec succès ! Bienvenue.');
+                
+                // CORRECTION 2 : Redirection immédiate vers ta page principale ou ton espace membre
+                // Au rechargement, la session PHP créée automatiquement dans auth_process.php sera lue.
+                window.location.href = 'index.php'; 
+                
             } else {
+                // C'est ici que le message "Seules les adresses @gmail.com..." s'affichera si l'utilisateur triche
                 alert(data.message || 'Erreur lors de la création du compte.');
             }
         } catch (err) {

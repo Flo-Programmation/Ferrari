@@ -7,7 +7,7 @@ ini_set('display_errors', 0);
 if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([
         'path' => '/',
-        'secure' => false,
+        'secure' => false, // Passez à true si vous utilisez du HTTPS
         'httponly' => true,
         'samesite' => 'Lax'
     ]);
@@ -63,7 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
 
         try {
-            // AJOUT : Sélection de c.id pour pouvoir cibler l'avis côté JavaScript
             $stmt = $bdd->prepare("
                 SELECT id, vehicle_index, comment, rating 
                 FROM comments 
@@ -106,6 +105,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        // --- CORRECTION STRUCTURELLE : RESTRICTION DES DOMAINES D'EMAIL ---
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['success' => false, 'message' => 'Le format de l\'adresse email est invalide.']);
+            exit;
+        }
+
+        // On extrait le domaine (ex: gmail.com)
+        $emailParts = explode('@', $email);
+        $domain = strtolower(end($emailParts));
+        
+        // Liste des domaines strictement autorisés
+        $allowedDomains = ['gmail.com', 'outlook.fr', 'outlook.com'];
+
+        if (!in_array($domain, $allowedDomains)) {
+            echo json_encode(['success' => false, 'message' => 'Seules les adresses @gmail.com, @outlook.fr et @outlook.com sont autorisées.']);
+            exit;
+        }
+
+        if (strlen($password) < 8) {
+            echo json_encode(['success' => false, 'message' => 'Le mot de passe doit contenir au moins 8 caractères.']);
+            exit;
+        }
+
         try {
             $stmtCheck = $bdd->prepare("SELECT id FROM users WHERE email = :email");
             $stmtCheck->execute(['email' => $email]);
@@ -118,13 +140,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtInsert = $bdd->prepare("INSERT INTO users (prenom, nom, email, password, role) VALUES (:prenom, :nom, :email, :password, 'member')");
             $stmtInsert->execute(['prenom' => $prenom, 'nom' => $nom, 'email' => $email, 'password' => $hashedPassword]);
 
-            $_SESSION['user'] = ['id' => $bdd->lastInsertId(), 'prenom' => $prenom, 'nom' => $nom, 'email' => $email, 'role' => 'member'];
+            // Connexion AUTOMATIQUE : On peuple immédiatement la session
+            $_SESSION['user'] = [
+                'id' => $bdd->lastInsertId(), 
+                'prenom' => $prenom, 
+                'nom' => $nom, 
+                'email' => $email, 
+                'role' => 'member'
+            ];
+            
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
-            echo json_encode(['success' => true, 'message' => 'Compte créé !', 'csrf_token' => $_SESSION['csrf_token'], 'role' => 'member']);
+            // On envoie 'success' => true pour que le JavaScript sache qu'il doit rediriger
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Compte créé avec succès !', 
+                'csrf_token' => $_SESSION['csrf_token'], 
+                'role' => 'member',
+                'prenom' => $prenom
+            ], JSON_UNESCAPED_UNICODE);
             exit;
         } catch (PDOException $e) {
-            echo json_encode(['success' => false, 'message' => 'Erreur inscription.']);
+            echo json_encode(['success' => false, 'message' => 'Erreur lors de l\'inscription.']);
             exit;
         }
     }
@@ -140,17 +177,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($user && password_verify($password, $user['password'])) {
                 $userRole = isset($user['role']) ? strtolower(trim($user['role'])) : 'member';
-                $_SESSION['user'] = ['id' => $user['id'], 'prenom' => $user['prenom'], 'nom' => $user['nom'], 'email' => $user['email'], 'role' => $userRole];
+                
+                $_SESSION['user'] = [
+                    'id' => $user['id'], 
+                    'prenom' => $user['prenom'], 
+                    'nom' => $user['nom'], 
+                    'email' => $user['email'], 
+                    'role' => $userRole
+                ];
+                
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
-                echo json_encode(['success' => true, 'message' => 'Connecté !', 'role' => $userRole, 'csrf_token' => $_SESSION['csrf_token']]);
+                echo json_encode([
+                    'success' => true, 
+                    'message' => 'Connecté !', 
+                    'role' => $userRole, 
+                    'csrf_token' => $_SESSION['csrf_token'],
+                    'prenom' => $user['prenom']
+                ], JSON_UNESCAPED_UNICODE);
                 exit;
             } else {
-                echo json_encode(['success' => false, 'message' => 'Identifiants incorrects.']);
+                echo json_encode(['success' => false, 'message' => 'Identifiants ou mot de passe incorrects.']);
                 exit;
             }
         } catch (PDOException $e) {
-            echo json_encode(['success' => false, 'message' => 'Erreur connexion.']);
+            echo json_encode(['success' => false, 'message' => 'Erreur lors de la connexion.']);
             exit;
         }
     }
@@ -182,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // --- MODIFIER UN AVIS (NOUVEAU) ---
+    // --- MODIFIER UN AVIS ---
     elseif ($action === 'edit') {
         if (empty($_SESSION['user']['id'])) {
             echo json_encode(['success' => false, 'message' => 'Action non autorisée.']);
@@ -199,7 +250,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         try {
-            // On vérifie que le commentaire appartient bien à l'utilisateur connecté avant de modifier
             $stmt = $bdd->prepare("UPDATE comments SET comment = ?, rating = ? WHERE id = ? AND user_id = ?");
             $stmt->execute([$comment, $rating, $comment_id, $_SESSION['user']['id']]);
             
@@ -211,7 +261,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // --- SUPPRIMER UN AVIS (NOUVEAU) ---
+    // --- SUPPRIMER UN AVIS ---
     elseif ($action === 'delete') {
         if (empty($_SESSION['user']['id'])) {
             echo json_encode(['success' => false, 'message' => 'Action non autorisée.']);
@@ -221,7 +271,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $comment_id = (int)($_POST['comment_id'] ?? 0);
 
         try {
-            // Soft delete (mise à jour du flag is_deleted) sécurisé par user_id
             $stmt = $bdd->prepare("UPDATE comments SET is_deleted = 1 WHERE id = ? AND user_id = ?");
             $stmt->execute([$comment_id, $_SESSION['user']['id']]);
             

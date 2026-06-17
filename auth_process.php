@@ -112,11 +112,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        $emailParts = explode('@', $email);
-        $domain = strtolower(end($emailParts));
-        $allowedDomains = ['gmail.com', 'outlook.fr', 'outlook.com'];
+        $email_parts = explode('@', $email);
+$domain = end($email_parts);
 
-        if (!in_array($domain, $allowedDomains)) {
+if (in_array($domain, ['gmail.com', 'outlook.fr', 'outlook.com'])) {
             echo json_encode(['success' => false, 'message' => 'Seules les adresses @gmail.com, @outlook.fr et @outlook.com sont autorisées.']);
             exit;
         }

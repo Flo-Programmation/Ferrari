@@ -1,5 +1,5 @@
 /**
- * Scuderia Ferrari - Script d'Administration de la Modération
+ * Scuderia Ferrari - Script d'Administration de la Modération & Messagerie
  */
 
 const carNames = {
@@ -9,6 +9,9 @@ const carNames = {
 };
 
 let localCommentsCached = [];
+let localMessagesCached = []; // Stockage local des messages pour le filtrage en temps réel
+let currentMessageFilter = 'all'; // Filtre de messagerie par défaut ('all', 'unread', 'read')
+
 const csrfToken = document.getElementById('admin-csrf')?.value || null;
 
 function escapeHtml(text) {
@@ -20,6 +23,10 @@ function escapeHtml(text) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
 }
+
+// =========================================================================
+// SECTION A : MODÉRATION DES AVIS CLIENTS
+// =========================================================================
 
 /**
  * Charge l'ensemble des commentaires depuis l'API d'administration
@@ -44,67 +51,6 @@ function loadAdminDashboard() {
         .catch(err => {
             console.error('Erreur Modération:', err);
             container.innerHTML = '<p style="text-align:center; color:#ff2828;">Impossible de joindre l\'API d\'administration.</p>';
-        });
-}
-
-/**
- * FONCTION NOUVELLE : Charge l'ensemble des messages de contact reçus
- */
-function loadContactMessages() {
-    const container = document.getElementById('contact-messages-container');
-    if (!container) return;
-
-    // Ajout explicite du jeton s'il est requis par ton fichier admin_process.php
-    fetch('admin_process.php?action=getAllMessages')
-        .then(response => {
-            if (!response.ok) throw new Error('Erreur serveur');
-            return response.json();
-        })
-        .then(data => {
-            if (data.success && Array.isArray(data.messages)) {
-                if (data.messages.length === 0) {
-                    container.innerHTML = '<p style="opacity:0.5; font-style:italic; padding:15px 0;">Aucun message reçu pour le moment.</p>';
-                    return;
-                }
-
-                let html = `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th style="width:15%;">Nom</th>
-                                <th style="width:20%;">Email</th>
-                                <th style="width:15%;">Téléphone</th>
-                                <th style="width:20%;">Sujet</th>
-                                <th style="width:30%;">Message</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-
-                data.messages.forEach(msg => {
-                    const phoneDisplay = msg.telephone ? escapeHtml(msg.telephone) : '<span style="opacity:0.3; font-style:italic;">Non renseigné</span>';
-                    const msgDisplay = msg.message ? escapeHtml(msg.message).replace(/\n/g, '<br>') : '';
-                    
-                    html += `
-                        <tr>
-                            <td><strong style="color:#fff;">${escapeHtml(msg.nom)}</strong></td>
-                            <td><a href="mailto:${escapeHtml(msg.email)}" style="color:#aaa; text-decoration:underline;">${escapeHtml(msg.email)}</a></td>
-                            <td>${phoneDisplay}</td>
-                            <td style="color: #ffaa00; font-weight: bold;">${escapeHtml(msg.sujet)}</td>
-                            <td style="color: #ccc; line-height: 1.4;">${msgDisplay}</td>
-                        </tr>
-                    `;
-                });
-
-                html += '</tbody></table>';
-                container.innerHTML = html;
-            } else {
-                container.innerHTML = `<p style="color:#ff2828; padding:15px 0;">${escapeHtml(data.message || 'Erreur lors de la récupération des messages.')}</p>`;
-            }
-        })
-        .catch(err => {
-            console.error('Erreur Messages Contact:', err);
-            container.innerHTML = '<p style="color:#ff2828; padding:15px 0;">Impossible de joindre l\'API de messagerie.</p>';
         });
 }
 
@@ -209,7 +155,7 @@ function bindModerationButtons() {
     if (!container) return;
 
     container.querySelectorAll('.btn-flag').forEach(btn => {
-        btn.replaceWith(btn.cloneNode(true)); // Nettoie les écouteurs précédents
+        btn.replaceWith(btn.cloneNode(true));
     });
 
     container.querySelectorAll('.btn-delete').forEach(btn => {
@@ -266,9 +212,168 @@ function executeModerationAction(actionName, id) {
     });
 }
 
+
+// =========================================================================
+// SECTION B : SYSTEME DE MESSAGERIE (CONTACT)
+// =========================================================================
+
+/**
+ * Charge l'ensemble des messages de contact reçus
+ */
+function loadContactMessages() {
+    const container = document.getElementById('contact-messages-container');
+    if (!container) return;
+
+    fetch('admin_process.php?action=getAllMessages')
+        .then(response => {
+            if (!response.ok) throw new Error('Erreur serveur');
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && Array.isArray(data.messages)) {
+                localMessagesCached = data.messages;
+                renderMessages();
+            } else {
+                container.innerHTML = `<p style="color:#ff2828; padding:15px 0;">${escapeHtml(data.message || 'Erreur lors de la récupération des messages.')}</p>`;
+            }
+        })
+        .catch(err => {
+            console.error('Erreur Messages Contact:', err);
+            container.innerHTML = '<p style="color:#ff2828; padding:15px 0;">Impossible de joindre l\'API de messagerie.</p>';
+        });
+}
+
+/**
+ * Filtre et construit dynamiquement l'affichage type boîte de réception
+ */
+function renderMessages() {
+    const container = document.getElementById('contact-messages-container');
+    if (!container) return;
+
+    // Application du filtre de lecture (all, unread, read)
+    const filtered = localMessagesCached.filter(msg => {
+        const isRead = parseInt(msg.is_read || 0) === 1;
+        if (currentMessageFilter === 'unread') return !isRead;
+        if (currentMessageFilter === 'read') return isRead;
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<p style="opacity:0.5; font-style:italic; padding:25px 0; text-align:center;">Aucun message trouvé dans cette catégorie.</p>';
+        return;
+    }
+
+    let html = "";
+    filtered.forEach(msg => {
+        const isRead = parseInt(msg.is_read || 0) === 1;
+        const phoneDisplay = msg.telephone ? escapeHtml(msg.telephone) : 'Non renseigné';
+        const msgDisplay = msg.message ? escapeHtml(msg.message).replace(/\n/g, '<br>') : '';
+        
+        // Structure optimisée en fiches de messagerie pour intégrer le design de lecture
+        html += `
+            <div class="review-row" style="border-left: 4px solid ${isRead ? '#333' : '#ff2828'}; opacity: ${isRead ? '0.65' : '1'}; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; background:#141414; padding:18px; border-radius:4px;">
+                <div class="review-info" style="width: 80%;">
+                    <h4 style="margin: 0 0 5px 0; font-size: 15px;">
+                        <strong style="color:#fff;">${escapeHtml(msg.nom)}</strong> 
+                        <span style="font-size:12px; color:#888; font-weight:normal; margin-left:8px;">(${escapeHtml(msg.email)} | Tél: ${phoneDisplay})</span>
+                        ${!isRead ? '<span class="global-badge" style="background:#ff2828; margin-left:10px; font-size:10px; padding:2px 6px;">Nouveau</span>' : ''}
+                    </h4>
+                    <div style="font-size:12px; color:#ffaa00; font-weight:bold; margin-bottom:8px;">Sujet : ${escapeHtml(msg.sujet)}</div>
+                    <p style="color: #ccc; font-style: normal; line-height:1.4; margin: 5px 0;">${msgDisplay}</p>
+                    <small style="color: #555; font-size:11px;">Reçu le : ${msg.created_at || 'Date inconnue'}</small>
+                </div>
+                <div class="review-actions" style="margin-left: 20px;">
+                    ${!isRead ? `
+                        <button class="btn-action btn-edit" onclick="markMessageAsRead(${msg.id})">
+                            <i class="fa-solid fa-envelope-open"></i> Lu
+                        </button>
+                    ` : `
+                        <span style="color: #00cc66; font-size: 13px; font-weight: bold;"><i class="fa-solid fa-circle-check"></i> Traité</span>
+                    `}
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+/**
+ * Change le filtre actif de la messagerie et met à jour l'apparence des boutons
+ */
+function filterMessages(filterType) {
+    currentMessageFilter = filterType;
+    
+    // Bascule visuelle des classes de boutons de filtres
+    ['all', 'unread', 'read'].forEach(f => {
+        const btn = document.getElementById(`btn-filter-${f}`);
+        if (btn) {
+            if (f === filterType) {
+                btn.style.background = '#ff2828';
+                btn.style.borderColor = '#ff2828';
+                btn.style.color = '#fff';
+            } else {
+                btn.style.background = '#222';
+                btn.style.borderColor = '#444';
+                btn.style.color = '#fff';
+            }
+        }
+    });
+
+    renderMessages();
+}
+
+/**
+ * Envoie une requête asynchrone pour marquer le message comme lu en Base de données
+ */
+function markMessageAsRead(messageId) {
+    if (!csrfToken) {
+        alert('Erreur de sécurité : Jeton CSRF absent.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'markMessageAsRead');
+    formData.append('message_id', messageId);
+    formData.append('csrf_token', csrfToken);
+
+    fetch('admin_process.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Erreur réseau');
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Mise à jour de l'état local pour rafraîchir l'interface sans recharger toute la page
+            const messageObj = localMessagesCached.find(m => m.id == messageId);
+            if (messageObj) {
+                messageObj.is_read = 1;
+            }
+            renderMessages();
+        } else {
+            alert(data.message || 'Impossible de modifier le statut de lecture.');
+        }
+    })
+    .catch(err => {
+        console.error('Erreur lecture message:', err);
+        alert('Erreur de connexion avec le serveur.');
+    });
+}
+
+// Globalisation pour permettre l'appel par l'attribut inline onclick="markMessageAsRead()"
+window.markMessageAsRead = markMessageAsRead;
+window.filterMessages = filterMessages;
+
+
+// =========================================================================
+// INITIALISATION GLOBALE
+// =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
     loadAdminDashboard();
-    loadContactMessages(); // Lancement du chargement des messages de contact
+    loadContactMessages(); // Initialisation de la boîte de messagerie
 
     const starFilterSelector = document.getElementById('star-filter');
     if (starFilterSelector) {

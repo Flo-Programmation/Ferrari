@@ -60,7 +60,7 @@ if ($method === 'GET') {
     // ACTION EXISTANTE : Récupérer tous les messages de contact
     if ($action === 'getAllMessages') {
         try {
-            $stmt = $bdd->query("SELECT * FROM contact_requests ORDER BY id DESC");
+            $stmt = $bdd->query("SELECT id, nom, email, message, created_at, is_read FROM contact_requests ORDER BY id DESC");
             $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             echo json_encode(['success' => true, 'messages' => $messages]);
@@ -119,6 +119,24 @@ if ($method === 'POST') {
             }
         }
     }
+
+    // ACTION : Marquer un message comme lu
+if ($action === 'markMessageAsRead') {
+    $message_id = intval($_POST['message_id'] ?? 0);
+    if ($message_id <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Identifiant de message invalide.']);
+        exit;
+    }
+    try {
+        $stmt = $bdd->prepare("UPDATE contact_requests SET is_read = 1 WHERE id = ?");
+        $stmt->execute([$message_id]);
+        echo json_encode(['success' => true, 'message' => 'Message marqué comme lu.']);
+        exit;
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Erreur : ' . $e->getMessage()]);
+        exit;
+    }
+}
 
     // =========================================================================
     // SECTION B : GESTION DES VÉHICULES (NOUVELLES FONCTIONNALITÉS AJOUTÉES)

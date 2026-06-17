@@ -119,7 +119,7 @@ try {
 <body>
 
     <div class="sidebar">
-        <h2><i class="fa-solid fa-gauge"></i> Scuderia Admin</h2>
+        <h2><i class="fa-solid fa-gauge"></i> Dashboard Admin</h2>
         <a href="#messages"><i class="fa-solid fa-envelope"></i> Messages reçus</a>
         <a href="#avis"><i class="fa-solid fa-comments"></i> Modération Avis</a>
         <a href="#garage" class="active"><i class="fa-solid fa-car"></i> Gestion Garage</a>
@@ -212,36 +212,26 @@ try {
                 </tbody>
             </table>
         </div>
-
-        <div class="data-section" id="messages">
-            <h2><i class="fa-solid fa-envelope"></i> Demandes de Contact Récentes</h2>
-            <div id="contact-messages-container">
-                <p style="opacity:0.5; font-style:italic;">Chargement des messages...</p>
-            </div>
-        </div>
-
         <div class="data-section" id="avis">
-            <h2><i class="fa-solid fa-comments"></i> Modération des Avis Clients</h2>
-            
-            <div style="margin-bottom: 20px;">
-                <label for="star-filter" style="font-size:14px; color:#aaa;">Filtrer par note : </label>
-                <select id="star-filter" style="background:#222; color:#fff; border:1px solid #454545; padding:6px 12px; border-radius:4px; outline:none; cursor:pointer;">
-                    <option value="all">Tous les avis</option>
-                    <option value="5">5 Étoiles</option>
-                    <option value="4">4 Étoiles</option>
-                    <option value="3">3 Étoiles</option>
-                    <option value="2">2 Étoiles</option>
-                    <option value="1">1 Étoile</option>
-                </select>
+                <h2><i class="fa-solid fa-comments"></i> Modération des Avis Clients</h2>
+                
+                <div style="margin-bottom: 20px;">
+                    <label for="star-filter" style="font-size:14px; color:#aaa;">Filtrer par note : </label>
+                    <select id="star-filter" style="background:#222; color:#fff; border:1px solid #454545; padding:6px 12px; border-radius:4px; outline:none; cursor:pointer;">
+                        <option value="all">Tous les avis</option>
+                        <option value="5">5 Étoiles</option>
+                        <option value="4">4 Étoiles</option>
+                        <option value="3">3 Étoiles</option>
+                        <option value="2">2 Étoiles</option>
+                        <option value="1">1 Étoile</option>
+                    </select>
+                </div>
+    
+                <div id="dashboard-container">
+                    <p style="opacity:0.5; font-style:italic;">Chargement des avis en cours...</p>
+                </div>
             </div>
-
-            <div id="dashboard-container">
-                <p style="opacity:0.5; font-style:italic;">Chargement des avis en cours...</p>
-            </div>
-        </div>
-
     </div>
-
     <div id="vehicle-modal-overlay" class="admin-modal-overlay" style="display: none;">
         <div class="admin-modal-content">
             <h3 id="modal-title">Ajouter un modèle</h3>
@@ -293,7 +283,21 @@ try {
             </form>
         </div>
     </div>
+    <section class="dash_right">
+<div class="data-section" id="messages">
+    <h2><i class="fa-solid fa-envelope"></i> Demandes de Contact Récentes</h2>
+    
+    <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+        <button class="btn-action" style="background: #222; color: #fff; border: 1px solid #444;" onclick="filterMessages('all')" id="btn-filter-all">Tous</button>
+        <button class="btn-action" style="background: #ff2828; color: #fff;" onclick="filterMessages('unread')" id="btn-filter-unread">Non lus</button>
+        <button class="btn-action" style="background: #222; color: #fff; border: 1px solid #444;" onclick="filterMessages('read')" id="btn-filter-read">Lus</button>
+    </div>
 
+    <div id="contact-messages-container">
+        <p style="opacity:0.5; font-style:italic;">Chargement des messages...</p>
+    </div>
+</div>
+</section>
     <script src="../assets/js/admin.js" defer></script>
 
     <script>

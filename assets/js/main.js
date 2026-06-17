@@ -628,75 +628,71 @@ loadingManager.onLoad = function () {
     }
 
     function fetchCommentsForVehicle(carDbId) {
-    const listContainer = document.getElementById("reviews-list-container");
-    const sidePreview = document.getElementById("reviews-side-preview");
-    const distribContainer = document.getElementById(
-        "stars-distribution-container",
-    );
-    const globalStarsContainer = document.getElementById("global-stars-stars");
-    const avgNumSpan = document.getElementById("average-rating-num");
-    const totalCountSpan = document.getElementById("total-reviews-count");
+    const listContainer = document.getElementById('reviews-list-container');
+    const sidePreview = document.getElementById('reviews-side-preview');
+    const distribContainer = document.getElementById('stars-distribution-container');
+    const globalStarsContainer = document.getElementById('global-stars-stars');
+    const avgNumSpan = document.getElementById('average-rating-num');
+    const totalCountSpan = document.getElementById('total-reviews-count');
 
     secureFetch(`auth_process.php?action=get&voiture_id=${carDbId}`)
-        .then((data) => {
-        let totalComments = 0;
-        let averageRating = 0.0;
-        let starCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+        .then(data => {
+            let totalComments = 0;
+            let averageRating = 0.0;
+            let starCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
 
-        if (
-            data &&
-            data.success &&
-            data.comments &&
-            Array.isArray(data.comments) &&
-            data.comments.length > 0
-        ) {
-            totalComments = data.comments.length;
-            let sum = 0;
-            data.comments.forEach((c) => {
-            const r = Math.min(
-                5,
-                Math.max(1, Math.round(parseFloat(c.note) || 0)),
-            );
-            sum += r;
-            if (starCounts[r] !== undefined) starCounts[r]++;
-            });
-            averageRating =
-            totalComments > 0 ? (sum / totalComments).toFixed(1) : "0.0";
-        }
+            if (data && data.success && data.comments && Array.isArray(data.comments) && data.comments.length > 0) {
+                totalComments = data.comments.length;
+                let sum = 0;
 
-        if (avgNumSpan)
-            avgNumSpan.textContent = totalComments > 0 ? averageRating : "0.0";
-        if (totalCountSpan) totalCountSpan.textContent = totalComments;
+                data.comments.forEach(c => {
+                    // CORRECTIF 1 : On récupère la vraie valeur numérique (entière ou décimale) sans l'arrondir tout de suite
+                    const rawRating = parseFloat(c.note || c.rating || 0);
+                    sum += rawRating;
 
-        if (globalStarsContainer) {
-            let gStarsHTML = "";
-            const roundedAvg = Math.round(parseFloat(averageRating));
-            for (let i = 1; i <= 5; i++) {
-            gStarsHTML +=
-                i <= roundedAvg
-                ? '<i class="fa-solid fa-star" style="margin-right:2px; color:#ffaa00;"></i>'
-                : '<i class="fa-regular fa-star" style="margin-right:2px; color:#555;"></i>';
+                    // CORRECTIF 2 : Pour la distribution des barres, on l'attribue à l'étoile entière la plus proche
+                    const bucket = Math.min(5, Math.max(1, Math.round(rawRating)));
+                    if (starCounts[bucket] !== undefined) {
+                        starCounts[bucket]++;
+                    }
+                });
+
+                // CORRECTIF 3 : Calcul précis de la moyenne avec une décimale
+                averageRating = (sum / totalComments).toFixed(1);
             }
-            globalStarsContainer.innerHTML = gStarsHTML;
-        }
 
-        if (distribContainer) {
-            let distribHTML = "";
-            for (let i = 5; i >= 1; i--) {
-            const count = starCounts[i];
-            const pct =
-                totalComments > 0 ? Math.round((count / totalComments) * 100) : 0;
-            distribHTML += `
-                            <div class="distrib-row">
-                                <span class="distrib-label">${i} <i class="fa-solid fa-star" style="font-size:9px; color:#ffaa00;"></i></span>
-                                <div class="distrib-bar-bg">
-                                    <div class="distrib-bar-fill" style="width: ${pct}%;"></div>
-                                </div>
-                                <span class="distrib-percent">${pct}%</span>
-                            </div>`;
+            // Mise à jour des textes de l'interface
+            if (avgNumSpan) avgNumSpan.textContent = totalComments > 0 ? averageRating : '0.0';
+            if (totalCountSpan) totalCountSpan.textContent = totalComments;
+
+            if (globalStarsContainer) {
+                let gStarsHTML = '';
+                // On arrondit la moyenne finale pour l'affichage visuel des étoiles globales
+                const roundedAvg = Math.round(parseFloat(averageRating));
+                for (let i = 1; i <= 5; i++) {
+                    gStarsHTML += i <= roundedAvg 
+                        ? '<i class="fa-solid fa-star" style="margin-right:2px; color:#ffaa00;"></i>' 
+                        : '<i class="fa-regular fa-star" style="margin-right:2px; color:#555;"></i>';
+                }
+                globalStarsContainer.innerHTML = gStarsHTML;
             }
-            distribContainer.innerHTML = distribHTML;
-        }
+
+            if (distribContainer) {
+                let distribHTML = '';
+                for (let i = 5; i >= 1; i--) {
+                    const count = starCounts[i];
+                    const pct = totalComments > 0 ? Math.round((count / totalComments) * 100) : 0;
+                    distribHTML += `
+                        <div class="distrib-row">
+                            <span class="distrib-label">${i} <i class="fa-solid fa-star" style="font-size:9px; color:#ffaa00;"></i></span>
+                            <div class="distrib-bar-bg">
+                                <div class="distrib-bar-fill" style="width: ${pct}%;"></div>
+                            </div>
+                            <span class="distrib-percent">${pct}%</span>
+                        </div>`;
+                }
+                distribContainer.innerHTML = distribHTML;
+            }
 
         if (
             !data ||
@@ -720,44 +716,45 @@ loadingManager.onLoad = function () {
         let previewHTML = "";
 
         data.comments.forEach((comment, index) => {
-            const commentText = escapeHtml(comment.commentaire || "");
-            const prenom = escapeHtml(comment.prenom || "Utilisateur");
-            const nom = comment.nom ? escapeHtml(comment.nom.charAt(0) + ".") : "";
-            const avatarUrl = escapeUrl(comment.avatar_url);
-            const authorName = `${prenom} ${nom}`.trim();
+                // CORRECTIF : Supporte à la fois "commentaire" et "comment" selon ce que renvoie le PHP
+                const commentText = escapeHtml(comment.commentaire || comment.comment || '');
+                const prenom = escapeHtml(comment.prenom || 'Utilisateur');
+                const nom = comment.nom ? escapeHtml(comment.nom.charAt(0) + '.') : '';
+                const avatarUrl = escapeUrl(comment.avatar_url);
+                const authorName = `${prenom} ${nom}`.trim();
 
-            let starsHTML = "";
-            const ratingVal = Math.min(5, Math.max(0, parseInt(comment.note) || 0));
-            for (let i = 1; i <= 5; i++) {
-            starsHTML +=
-                i <= ratingVal
-                ? '<i class="fa-solid fa-star" style="color:#ffaa00;"></i>'
-                : '<i class="fa-regular fa-star" style="color:#555;"></i>';
-            }
+                let starsHTML = '';
+                // CORRECTIF : Supporte à la fois "note" et "rating"
+                const ratingVal = Math.min(5, Math.max(0, parseInt(comment.note || comment.rating) || 0));
+                for (let i = 1; i <= 5; i++) {
+                    starsHTML += i <= ratingVal 
+                        ? '<i class="fa-solid fa-star" style="color:#ffaa00;"></i>' 
+                        : '<i class="fa-regular fa-star" style="color:#555;"></i>';
+                }
 
-            listHTML += `
-                        <div class="review-card">
-                            <img src="${avatarUrl}" class="review-avatar" alt="Avatar de ${authorName}" loading="lazy">
-                            <div class="review-content">
-                                <div class="review-header">
-                                    <span class="review-author">${authorName}</span>
-                                    <span class="review-stars">${starsHTML}</span>
-                                </div>
-                                <p class="review-text">${commentText}</p>
+                listHTML += `
+                    <div class="review-card">
+                        <img src="${avatarUrl}" class="review-avatar" alt="Avatar de ${authorName}" loading="lazy">
+                        <div class="review-content">
+                            <div class="review-header">
+                                <span class="review-author">${authorName}</span>
+                                <span class="review-stars">${starsHTML}</span>
                             </div>
-                        </div>`;
+                            <p class="review-text">${commentText}</p>
+                        </div>
+                    </div>`;
 
-            if (index < 2) {
-            previewHTML += `
-                            <div class="preview-review-card">
-                                <div class="preview-review-header">
-                                    <span class="preview-review-author">${authorName}</span>
-                                    <span class="preview-review-stars">${starsHTML}</span>
-                                </div>
-                                <p class="preview-review-text">${commentText}</p>
-                            </div>`;
-            }
-        });
+                if (index < 2) {
+                    previewHTML += `
+                        <div class="preview-review-card">
+                            <div class="preview-review-header">
+                                <span class="preview-review-author">${authorName}</span>
+                                <span class="preview-review-stars">${starsHTML}</span>
+                            </div>
+                            <p class="preview-review-text">${commentText}</p>
+                        </div>`;
+                }
+            });
 
         if (listContainer) listContainer.innerHTML = listHTML;
         if (sidePreview) sidePreview.innerHTML = previewHTML;

@@ -138,7 +138,64 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
     </style>
 </head>
 <body data-authenticated="<?php echo $isAuthenticated; ?>">
+<div id="site-loader" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #0b0b0b;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.6s cubic-bezier(0.25, 1, 0.5, 1), visibility 0.6s;
+">
+    <div class="block-loader-container" style="
+        display: flex;
+        gap: 8px;
+        height: 40px;
+        align-items: center;
+        margin-bottom: 25px;
+    ">
+        <div class="loader-block" style="animation-delay: 0s;"></div>
+        <div class="loader-block" style="animation-delay: 0.15s;"></div>
+        <div class="loader-block" style="animation-delay: 0.3s;"></div>
+    </div>
+    
+    <p style="color: #fff; font-family: sans-serif; font-size: 12px; letter-spacing: 3px; opacity: 0.8; font-weight: 300;">CHARGEMENT DU SHOWROOM</p>
+</div>
 
+<style>
+    /* Style individuel de chaque bloc */
+    .loader-block {
+        width: 12px;
+        height: 30px;
+        background-color: #ff2828; /* Ta couleur rouge d'accentuation */
+        border-radius: 2px;
+        animation: blockWave 1.2s ease-in-out infinite;
+    }
+
+    /* L'animation : le bloc grandit (scaleY), devient opaque, puis rétrécit et s'estompe */
+    @keyframes blockWave {
+        0%, 100% {
+            transform: scaleY(0.4);
+            opacity: 0.2;
+        }
+        50% {
+            transform: scaleY(1.2);
+            opacity: 1;
+            background-color: #ff5555; /* Légère variation lumineuse au sommet de l'animation */
+        }
+    }
+
+    /* Classe JavaScript pour masquer proprement le loader */
+    .loader-hidden {
+        opacity: 0 !important;
+        visibility: hidden !important;
+    }
+</style>
     <video src="assets/videos/4K-Cinematic.mp4" autoplay loop muted playsinline id="bg-video"></video>
 
     <nav class="navbar">

@@ -8,6 +8,9 @@ if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.cookie_samesite', 'Strict');
     session_start();
 }
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
 $isAuthenticated = isset($_SESSION['user']) ? 'true' : 'false';
 $user_prenom = $_SESSION['user']['prenom'] ?? '';
@@ -139,6 +142,7 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
     </style>
 </head>
 <body data-authenticated="<?php echo $isAuthenticated; ?>">
+    <input type="hidden" id="global-csrf-token" value="<?php echo $_SESSION['csrf_token']; ?>">
 <div id="site-loader" style="
     position: fixed;
     top: 0;

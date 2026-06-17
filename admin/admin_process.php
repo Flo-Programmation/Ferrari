@@ -16,7 +16,60 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// 1. Contrôle d'accès strict
+// 2. Connexion à la base de données
+require_once '../config/database.php';
+
+$method = $_SERVER['REQUEST_METHOD'];
+
+// =========================================================================
+// ACTION PUBLIQUE : ENVOI DU FORMULAIRE DE CONTACT (Doit être TOUT EN HAUT)
+// =========================================================================
+if ($method === 'POST' && isset($_POST['action']) && $_POST['action'] === 'contact_submit') {
+    $csrf_token = $_POST['csrf_token'] ?? '';
+
+    // Décommenter la ligne suivante si tu veux temporairement désactiver le CSRF pour tester si c'est lui qui bloque :
+    // if (true) { 
+    if (!empty($csrf_token) && isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $csrf_token)) {
+        
+        $nom = trim($_POST['nom'] ?? '');
+        $email = filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL);
+        $telephone = trim($_POST['telephone'] ?? '');
+        $sujet = trim($_POST['sujet'] ?? '');
+        $message = trim($_POST['message'] ?? '');
+
+        if (empty($nom) || !$email || empty($sujet) || empty($message)) {
+            echo json_encode(['success' => false, 'message' => 'Veuillez remplir correctement tous les champs obligatoires.']);
+            exit;
+        }
+
+        try {
+            $stmt = $bdd->prepare("
+                INSERT INTO contact_requests (nom, email, telephone, sujet, message, created_at, is_read) 
+                VALUES (:nom, :email, :telephone, :sujet, :message, NOW(), 0)
+            ");
+            $stmt->execute([
+                'nom' => $nom,
+                'email' => $email,
+                'telephone' => $telephone,
+                'sujet' => $sujet,
+                'message' => $message
+            ]);
+
+            echo json_encode(['success' => true, 'message' => 'Votre message a bien été transmis avec succès !']);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur lors de l\'envoi en BDD : ' . $e->getMessage()]);
+            exit;
+        }
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Erreur de sécurité : Jeton CSRF invalide ou expiré.']);
+        exit;
+    }
+}
+
+// =========================================================================
+// CONTRÔLE D'ACCÈS STRICT POUR LE RESTE DES ACTIONS (Réservé aux Admins uniquement)
+// =========================================================================
 if (!isset($_SESSION['user']) || strtolower(trim($_SESSION['user']['role'])) !== 'admin') {
     echo json_encode(['success' => false, 'message' => 'Accès refusé. Autorisation insuffisante.']);
     exit;

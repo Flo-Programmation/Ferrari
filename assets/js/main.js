@@ -668,6 +668,36 @@ function animate() {
   renderer?.render(scene, camera);
 }
 
+// --- GESTION DU FORMULAIRE DE CONTACT ---
+const contactForm = document.getElementById("contact-form");
+
+if (contactForm) {
+  contactForm.addEventListener("submit", async (e) => {
+    e.preventDefault(); // Empêche le rechargement de la page (#)
+
+    let formData = new FormData(contactForm);
+    
+    // On ajoute l'action pour que le PHP sache quoi faire
+    formData.append("action", "contact_submit");
+    
+    // On utilise ta fonction existante pour ajouter le CSRF
+    formData = addCsrfToken(formData);
+
+    // On utilise ta fonction sécurisée secureFetch
+    const result = await secureFetch("admin/admin_process.php", {
+      method: "POST",
+      body: formData
+    });
+
+    if (result && result.success) {
+      alert("Succès : " + result.message);
+      contactForm.reset(); // On vide les champs du formulaire
+    } else {
+      alert("Erreur : " + (result?.message || "Impossible d'envoyer le message."));
+    }
+  });
+}
+
 async function initApp() {
   if (
     document.body.dataset.authenticated === "true" ||

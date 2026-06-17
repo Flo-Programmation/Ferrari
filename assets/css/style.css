@@ -1589,3 +1589,132 @@ body {
     background: #cc1f1f;
     transform: translateY(-2px);
 }
+
+/* =========================================================================
+   FENÊTRE MODALE DES MODÈLES (VIGNETTES & CATALOGUE)
+   ========================================================================= */
+.catalogue-modal-container {
+    max-width: 1000px; /* Plus large pour la grille de voitures */
+    width: 90%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    background: #0b0b0b;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.catalogue-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.catalogue-modal-header h2 {
+    font-size: 1.4rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--ferrari-red);
+}
+
+/* Grille de vignettes */
+.catalogue-cars-grid {
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    padding-right: 5px;
+}
+
+/* Vignette individuelle */
+.car-vignette-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.car-vignette-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--ferrari-red);
+    box-shadow: 0 4px 15px rgba(239, 26, 45, 0.15);
+}
+
+/* Zone réservée pour vos photos */
+.car-vignette-image-placeholder {
+    width: 100%;
+    height: 165px;
+    background: #141414;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #444;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Rendu propre si une balise img est chargée dynamiquement */
+.car-vignette-image-placeholder img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.car-vignette-details {
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.car-vignette-year {
+    font-size: 0.8rem;
+    color: #888;
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+.car-vignette-title {
+    font-size: 1.2rem;
+    margin: 0 0 8px 0;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #fff;
+}
+
+.car-vignette-price {
+    font-size: 1.1rem;
+    color: var(--ferrari-red);
+    font-weight: bold;
+    margin-bottom: 15px;
+    margin-top: auto; /* Pousse les éléments au fond */
+}
+
+.btn-vignette-tech {
+    background: var(--ferrari-red);
+    color: #fff;
+    border: none;
+    padding: 10px 15px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: background 0.2s ease;
+    width: 100%;
+    text-align: center;
+}
+
+.btn-vignette-tech:hover {
+    background: #c61122;
+}

@@ -2,50 +2,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-const carData = [
-    {
-        model: "assets/models/ferrari_bleu.glb",
-        title: "Monza SP3 Evo",
-        subtitle: "L'Équilibre Absolu du V12",
-        badge: "Édition Limitée",
-        specs: "<p><strong>Moteur :</strong> V12 Atmosphérique | 6.5L</p><p><strong>Puissance :</strong> 850 ch à 9 200 tr/min</p><p><strong>0-100 km/h :</strong> 2.85 secondes</p>",
-        desc: "Inspirée des mythiques barquettes de compétition des années 1960. Son profil aérodynamique virtuel unique canalise le flux d'air pour s'affranchir de pare-brise.",
-        sound: "assets/src/sounds/ferrariEngine.wav",
-        techDetails: {
-            moteur: "V12 Atmosphérique 6.5L", vitesse: "> 340 km/h", puissance: "850 ch", couple: "692 Nm",
-            chrono: "2.85 s", poids: "1 480 kg", boite: "DCT 7 rapports", transmission: "Propulsion"
-        },
-        tracks: { fiorano: "1'16\"30", monza: "1'41\"20" }
-    },
-    {
-        model: "assets/models/599obj.glb",
-        title: "SF100 Vision",
-        subtitle: "Le Futur Hyper-Électrique",
-        badge: "Concept Car",
-        specs: "<p><strong>Motorisation :</strong> 4 Moteurs Électriques</p><p><strong>Puissance :</strong> 1 200 ch combinés</p><p><strong>Couple maximal :</strong> Vectorisation active</p>",
-        desc: "Une vitrine technologique de la Scuderia dotée d'un empattement long. Conçue exclusivement pour briser les lois de la physique sur circuit.",
-        sound: "assets/src/sounds/ferrariEngine.wav",
-        techDetails: {
-            moteur: "4 Moteurs Électriques", vitesse: "> 350 km/h", puissance: "1 200 ch", couple: "1 400 Nm",
-            chrono: "1.95 s", poids: "1 650 kg", boite: "Direct Drive", transmission: "Intégrale (4WD)"
-        },
-        tracks: { fiorano: "1'12\"10 (Record)", monza: "1'35\"40" }
-    },
-    {
-        model: "assets/models/ferrari.glb",
-        title: "F42 Aperta",
-        subtitle: "La Pureté à Ciel Ouvert",
-        badge: "Série Spéciale",
-        specs: "<p><strong>Moteur :</strong> V8 Bi-turbo Hybride</p><p><strong>Puissance :</strong> 830 ch + 163 ch élec</p><p><strong>Châssis :</strong> Monocoque Carbone</p>",
-        desc: "Alliant un toit amovible en fibre de carbone à la puissance brute du système hybride synchrone directement dérivé du savoir-faire F1.",
-        sound: "assets/src/sounds/ferrariEngine.wav",
-        techDetails: {
-            moteur: "V8 Bi-turbo Hybride", vitesse: "> 340 km/h", puissance: "993 ch (Cumulée)", couple: "900 Nm",
-            chrono: "2.9 s", poids: "1 485 kg", boite: "DCT 8 rapports", transmission: "Propulsion"
-        },
-        tracks: { fiorano: "1'17\"80", monza: "1'43\"15" }
-    }
-];
+// Variable globale contenant les données dynamiques synchronisées avec la BDD
+let carData = [];
 
 const AppState = {
     currentIndex: 0,
@@ -139,8 +97,12 @@ function stopCurrentVehicleSound() {
 }
 
 function playVehicleSound() {
+    if (carData.length === 0 || !carData[AppState.currentIndex]) return;
     stopCurrentVehicleSound();
-    const audio = new Audio(carData[AppState.currentIndex].sound);
+    const soundUrl = carData[AppState.currentIndex].sound;
+    if (!soundUrl) return;
+    
+    const audio = new Audio(soundUrl);
     audio.volume = 0.2;
     audio.play().catch(err => console.warn('Lecture audio impossible:', err));
     AppState.currentAudio = audio;
@@ -183,6 +145,10 @@ function loadVehicleModel(index) {
         return Promise.resolve(AppState.loadedGroups.get(index));
     }
     return new Promise((resolve) => {
+        if (!carData[index] || !carData[index].model) {
+            resolve(new THREE.Group());
+            return;
+        }
         loader.load(carData[index].model, (gltf) => {
             const model = gltf.scene;
             const group = new THREE.Group();
@@ -204,11 +170,15 @@ function loadVehicleModel(index) {
 
             AppState.loadedGroups.set(index, group);
             resolve(group);
+        }, undefined, (error) => {
+            console.error("Erreur lors du chargement du fichier 3D GLB:", error);
+            resolve(new THREE.Group());
         });
     });
 }
 
 async function changeVehicle(newIndex) {
+    if (carData.length === 0) return;
     stopCurrentVehicleSound();
     AppState.currentIndex = newIndex;
     if (container) container.style.opacity = 0.1;
@@ -228,7 +198,8 @@ async function changeVehicle(newIndex) {
     if (descEl) descEl.innerText = data.desc;
     
     updateSidePanelContent(data);
-    fetchCommentsForVehicle(AppState.currentIndex);
+    // On passe désormais le véritable ID de la BDD pour charger les bons avis !
+    fetchCommentsForVehicle(data.id);
 
     document.querySelectorAll('.dots-navigation .dot').forEach((dot, idx) => {
         dot.classList.toggle('active', idx === AppState.currentIndex);
@@ -246,8 +217,12 @@ async function changeVehicle(newIndex) {
 
 const arrowNext = document.getElementById('arrow-next');
 const arrowPrev = document.getElementById('arrow-prev');
-if (arrowNext) arrowNext.addEventListener('click', () => changeVehicle((AppState.currentIndex + 1) % carData.length));
-if (arrowPrev) arrowPrev.addEventListener('click', () => changeVehicle((AppState.currentIndex - 1 + carData.length) % carData.length));
+if (arrowNext) arrowNext.addEventListener('click', () => {
+    if (carData.length > 0) changeVehicle((AppState.currentIndex + 1) % carData.length);
+});
+if (arrowPrev) arrowPrev.addEventListener('click', () => {
+    if (carData.length > 0) changeVehicle((AppState.currentIndex - 1 + carData.length) % carData.length);
+});
 
 function fetchUserActivity() {
     const activityContainer = document.getElementById('user-reviews-container'); 
@@ -258,14 +233,15 @@ function fetchUserActivity() {
         return;
     }
 
-    // On cible le bon fichier de traitement PHP
     secureFetch('auth_process.php?action=getUserComments')
         .then(data => {
             if (data && data.success && data.my_comments && data.my_comments.length > 0) {
                 let html = '<div class="user-activity-list" style="padding-right: 5px;">';
                 data.my_comments.forEach(c => {
                     let stars = '★'.repeat(c.rating) + '☆'.repeat(5 - c.rating);
-                    const carName = carData[c.vehicle_index] ? carData[c.vehicle_index].title : `Véhicule #${c.vehicle_index}`;
+                    // Recherche par ID réel dans carData au lieu de l'index du tableau
+                    const matchingCar = carData.find(car => car.id == c.voiture_id);
+                    const carName = matchingCar ? matchingCar.title : `Véhicule #${c.voiture_id}`;
                     
                     html += `
                         <div class="user-activity-item" id="user-comment-row-${c.id}" style="border-bottom: 1px solid #222; padding: 12px 0; font-size: 13px;">
@@ -298,7 +274,9 @@ function fetchUserActivity() {
                                     if (res.success) {
                                         alert(res.message);
                                         fetchUserActivity();
-                                        fetchCommentsForVehicle(AppState.currentIndex);
+                                        if (carData[AppState.currentIndex]) {
+                                            fetchCommentsForVehicle(carData[AppState.currentIndex].id);
+                                        }
                                     } else {
                                         alert(res.message);
                                     }
@@ -307,7 +285,7 @@ function fetchUserActivity() {
                     });
                 });
 
-                // Liaison des événements de modification (Réparé !)
+                // Liaison des événements de modification
                 activityContainer.querySelectorAll('.btn-edit-my-comment').forEach(btn => {
                     btn.addEventListener('click', function() {
                         const id = this.dataset.id;
@@ -315,16 +293,15 @@ function fetchUserActivity() {
                         const oldRating = this.dataset.rating;
 
                         const newText = prompt("Modifiez votre commentaire :", oldText);
-                        if (newText === null) return; // Annulation de l'utilisateur
+                        if (newText === null) return;
                         if (newText.trim() === '') {
                             alert("Le commentaire ne peut pas être vide.");
                             return;
                         }
 
                         const newRatingStr = prompt("Nouvelle note (1 à 5) :", oldRating);
-                        if (newRatingStr === null) return; // Annulation de l'utilisateur
+                        if (newRatingStr === null) return;
                         
-                        // Utilisation correcte de Math.max
                         const newRating = Math.min(5, Math.max(1, parseInt(newRatingStr) || 5));
 
                         const formData = new FormData();
@@ -338,8 +315,10 @@ function fetchUserActivity() {
                             .then(res => {
                                 if (res.success) {
                                     alert(res.message);
-                                    fetchUserActivity(); // Recharge l'onglet d'activité
-                                    fetchCommentsForVehicle(AppState.currentIndex); // Met à jour la liste principale en direct
+                                    fetchUserActivity();
+                                    if (carData[AppState.currentIndex]) {
+                                        fetchCommentsForVehicle(carData[AppState.currentIndex].id);
+                                    }
                                 } else {
                                     alert(res.message);
                                 }
@@ -357,7 +336,7 @@ function fetchUserActivity() {
         });
 }
 
-function fetchCommentsForVehicle(vehicleIndex) {
+function fetchCommentsForVehicle(carDbId) {
     const listContainer = document.getElementById('reviews-list-container');
     const sidePreview = document.getElementById('reviews-side-preview');
     const distribContainer = document.getElementById('stars-distribution-container');
@@ -365,9 +344,7 @@ function fetchCommentsForVehicle(vehicleIndex) {
     const avgNumSpan = document.getElementById('average-rating-num');
     const totalCountSpan = document.getElementById('total-reviews-count');
 
-    const sanitizedIndex = Math.max(0, parseInt(vehicleIndex) || 0);
-
-    secureFetch(`auth_process.php?action=get&vehicle_index=${sanitizedIndex}`)
+    secureFetch(`auth_process.php?action=get&voiture_id=${carDbId}`)
         .then(data => {
             let totalComments = 0;
             let averageRating = 0.0;
@@ -377,7 +354,7 @@ function fetchCommentsForVehicle(vehicleIndex) {
                 totalComments = data.comments.length;
                 let sum = 0;
                 data.comments.forEach(c => {
-                    const r = Math.min(5, Math.max(1, Math.round(parseFloat(c.rating) || 0)));
+                    const r = Math.min(5, Math.max(1, Math.round(parseFloat(c.note) || 0)));
                     sum += r;
                     if (starCounts[r] !== undefined) starCounts[r]++;
                 });
@@ -430,14 +407,14 @@ function fetchCommentsForVehicle(vehicleIndex) {
             let previewHTML = '';
 
             data.comments.forEach((comment, index) => {
-                const commentText = escapeHtml(comment.comment || '');
+                const commentText = escapeHtml(comment.commentaire || '');
                 const prenom = escapeHtml(comment.prenom || 'Utilisateur');
                 const nom = comment.nom ? escapeHtml(comment.nom.charAt(0) + '.') : '';
                 const avatarUrl = escapeUrl(comment.avatar_url);
                 const authorName = `${prenom} ${nom}`.trim();
 
                 let starsHTML = '';
-                const ratingVal = Math.min(5, Math.max(0, parseInt(comment.rating) || 0));
+                const ratingVal = Math.min(5, Math.max(0, parseInt(comment.note) || 0));
                 for (let i = 1; i <= 5; i++) {
                     starsHTML += i <= ratingVal 
                         ? '<i class="fa-solid fa-star" style="color:#ffaa00;"></i>' 
@@ -481,7 +458,7 @@ if (leaveReviewForm) {
 
         if (!AppState.isAuthenticated) {
             alert('Vous devez être connecté pour laisser un avis.');
-            ouvrirModalConnexion();
+            if (typeof ouvrirModalConnexion === 'function') ouvrirModalConnexion();
             return;
         }
 
@@ -513,23 +490,26 @@ if (leaveReviewForm) {
         const safeComment = truncateText(commentText, 2000);
         const rating = checkedStarInput ? Math.min(5, Math.max(1, parseInt(checkedStarInput.value) || 5)) : 5;
 
+        if (!carData[AppState.currentIndex]) return;
+
         const formData = new FormData();
         formData.append('action', 'add');
-        formData.append('vehicle_index', AppState.currentIndex);
+        // On transmet l'id réel de la voiture en BDD plutôt que l'index JS !
+        formData.append('voiture_id', carData[AppState.currentIndex].id);
         formData.append('rating', rating);
         formData.append('comment', safeComment);
         addCsrfToken(formData); 
 
         try {
             const data = await secureFetch('auth_process.php', {
-            method: 'POST',
-            body: formData
-        });
+                method: 'POST',
+                body: formData
+            });
 
             if (data.success) {
                 commentTextarea.value = '';
                 if (checkedStarInput) checkedStarInput.checked = false; 
-                fetchCommentsForVehicle(AppState.currentIndex);
+                fetchCommentsForVehicle(carData[AppState.currentIndex].id);
                 fetchUserActivity(); 
                 alert(data.message || 'Votre avis a été enregistré !');
             } else {
@@ -655,7 +635,7 @@ function updateSidePanelContent(data) {
                 <div><span>Puissance</span><p>${escapeHtml(data.techDetails.puissance || '')}</p></div>
             </div>
             <div class="spec-item">
-                <div><span>0-100 km/h</span><p>${escapeHtml(data.techDetails.chrono || '')}</p></div>
+                <div><span>Boîte de vitesses</span><p>${escapeHtml(data.techDetails.boite || 'Séquentielle')}</p></div>
             </div>`;
     }
 }
@@ -854,9 +834,50 @@ async function initApp() {
         AppState.csrfToken = document.getElementById('global-csrf-token')?.value || null;
     }
 
-    await changeVehicle(0);
+    try {
+        // CHARGEMENT DYNAMIQUE DEPUIS LA BASE DE DONNÉES
+        const response = await fetch('api/get_vehicules.php');
+        const result = await response.json();
+
+        if (result.success && result.cars && result.cars.length > 0) {
+            // Mapping des données de la table voiture
+            carData = result.cars.map(car => ({
+                id: car.id, 
+                model: car.glb_url, 
+                title: car.modele,
+                subtitle: `${car.moteur} | ${car.annee}`,
+                badge: parseInt(car.puissance_ch) >= 900 ? "Supercar" : "Série Spéciale",
+                specs: `<p><strong>Moteur :</strong> ${car.moteur}</p>
+                        <p><strong>Puissance :</strong> ${car.puissance_ch} ch</p>
+                        <p><strong>Vitesse Max :</strong> ${car.vitesse_max} km/h</p>`,
+                desc: car.description || "Aucune description disponible pour le moment.",
+                sound: car.sound_url || "assets/sounds/ferrariEngine.wav",
+                techDetails: {
+                    moteur: car.moteur,
+                    vitesse: `${car.vitesse_max} km/h`,
+                    puissance: `${car.puissance_ch} ch`,
+                    boite: "Séquentielle F1", 
+                    transmission: "Propulsion"
+                }
+            }));
+
+            // Charger la première voiture par défaut
+            await changeVehicle(0);
+        } else {
+            console.error("Aucun modèle trouvé dans la base de données.");
+        }
+    } catch (error) {
+        console.error("Erreur lors de l'initialisation des données dynamiques:", error);
+    }
+
     animate();
 }
+
+
+// Rendre la fonction accessible au script de la modale "Découvrir"
+window.changeVehicle = changeVehicle;
+// Rendre la variable accessible au besoin
+window.getCarDataLength = () => carData.length;
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);

@@ -364,67 +364,67 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
     </div>
 
     <section id="modeles" class="section-modeles">
-        <div class="section-title-container">
-            <div class="line"></div>
-            <h2>Découvrez notre gamme exclusive</h2>
-            <div class="line"></div>
-        </div>
-        <p class="section-subtitle">L'excellence Ferrari sous toutes ses formes</p>
+    <div class="section-title-container">
+        <div class="line"></div>
+        <h2>Découvrez notre gamme exclusive</h2>
+        <div class="line"></div>
+    </div>
+    <p class="section-subtitle">L'excellence Ferrari sous toutes ses formes</p>
 
-        <div class="modeles-grid">
-            <div class="model-card">
-                <div class="card-badge-type supercar">Édition Limitée</div>
-                <div class="card-img-wrapper">
-                    <img src="https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&q=80&w=600" alt="Monza SP3 Evo">
-                </div>
-                <div class="card-body-content">
-                    <h3>Monza SP3 Evo</h3>
-                    <p>L'Équilibre Absolu du V12 atmosphérique.</p>
-                    <div class="card-price-container">
-                        <span>A partir de</span>
-                        <div class="price">2 000 000 €</div>
-                    </div>
-                    <button class="btn-card-discover" onclick="window.location.href='#showroom'; changeVehicle(0);">Découvrir</button>
-                </div>
+    <div class="modeles-grid">
+        <div class="model-card">
+            <div class="card-badge-type supercar">Édition Limitée</div>
+            <div class="card-img-wrapper">
+                <img src="https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&q=80&w=600" alt="Monza SP3 Evo">
             </div>
-
-            <div class="model-card">
-                <div class="card-badge-type supercar">Concept Car</div>
-                <div class="card-img-wrapper">
-                    <img src="https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?auto=format&fit=crop&q=80&w=600" alt="SF100 Vision">
+            <div class="card-body-content">
+                <h3>Monza SP3 Evo</h3>
+                <p>L'Équilibre Absolu du V12 atmosphérique.</p>
+                <div class="card-price-container">
+                    <span>A partir de</span>
+                    <div class="price">2 000 000 €</div>
                 </div>
-                <div class="card-body-content">
-                    <h3>SF100 Vision</h3>
-                    <p>Le Futur Hyper-Électrique sur circuit.</p>
-                    <div class="card-price-container">
-                        <span>Prototype</span>
-                        <div class="price">Unique</div>
-                    </div>
-                    <button class="btn-card-discover" onclick="window.location.href='#showroom'; changeVehicle(1);">Découvrir</button>
-                </div>
-            </div>
-
-            <div class="model-card">
-                <div class="card-badge-type supercar">Série Spéciale</div>
-                <div class="card-img-wrapper">
-                    <img src="https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=600" alt="F42 Aperta">
-                </div>
-                <div class="card-body-content">
-                    <h3>F42 Aperta</h3>
-                    <p>La Pureté à Ciel Ouvert combinée au V8 hybride.</p>
-                    <div class="card-price-container">
-                        <span>A partir de</span>
-                        <div class="price">1 200 000 €</div>
-                    </div>
-                    <button class="btn-card-discover" onclick="window.location.href='#showroom'; changeVehicle(2);">Découvrir</button>
-                </div>
+                <button class="btn-card-discover trigger-catalogue-modal" data-target-car="Monza SP3 EVO">Découvrir</button>
             </div>
         </div>
 
-        <div class="global-action-container">
-            <button class="btn-view-all-range" onclick="window.location.href='#showroom'">Voir toute la gamme</button>
+        <div class="model-card">
+            <div class="card-badge-type supercar">Concept Car</div>
+            <div class="card-img-wrapper">
+                <img src="https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?auto=format&fit=crop&q=80&w=600" alt="SF100 Vision">
+            </div>
+            <div class="card-body-content">
+                <h3>SF100 Vision</h3>
+                <p>Le Futur Hyper-Électrique sur circuit.</p>
+                <div class="card-price-container">
+                    <span>Prototype</span>
+                    <div class="price">Unique</div>
+                </div>
+                <button class="btn-card-discover trigger-catalogue-modal" data-target-car="SF90 Stradale">Découvrir</button>
+            </div>
         </div>
-    </section>
+
+        <div class="model-card">
+            <div class="card-badge-type supercar">Série Spéciale</div>
+            <div class="card-img-wrapper">
+                <img src="https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=600" alt="F42 Aperta">
+            </div>
+            <div class="card-body-content">
+                <h3>F42 Aperta</h3>
+                <p>La Pureté à Ciel Ouvert combinée au V8 hybride.</p>
+                <div class="card-price-container">
+                    <span>A partir de</span>
+                    <div class="price">1 200 000 €</div>
+                </div>
+                <button class="btn-card-discover trigger-catalogue-modal" data-target-car="296 GTB">Découvrir</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="global-action-container">
+        <button class="btn-view-all-range trigger-catalogue-modal" data-target-car="all">Voir toute la gamme</button>
+    </div>
+</section>
 
     <section id="contact" class="section-contact">
         <div class="contact-panel-container">
@@ -508,6 +508,20 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
             <p>Conçu avec passion pour l'excellence automobile</p>
         </div>
     </footer>
+    
+    <div class="modal-overlay" id="catalogue-modal-overlay">
+    <div class="modal-container catalogue-modal-container">
+        <div class="catalogue-modal-header">
+            <h2><i class="fa-solid fa-car-side"></i> Notre Catalogue Scuderia</h2>
+            <button class="close-btn" id="close-catalogue-modal-btn">&times;</button>
+        </div>
+        
+        <div class="catalogue-cars-grid" id="catalogue-cars-grid">
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/catalogue.js"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {

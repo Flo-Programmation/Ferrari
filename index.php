@@ -363,6 +363,59 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
         </div>
     </div>
 
+    <section id="engine-showroom-section" style="position: relative; width: 100%; height: 85vh; background: radial-gradient(circle at center, #1c1f22 0%, #0a0b0c 100%); overflow: hidden; border-bottom: 1px solid #1a1c1e;">
+    
+    <div style="position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 1;"></div>
+
+    <div class="engine-title-container" style="position: absolute; top: 40px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center;">
+        <h2 style="color: #fff; font-family: 'Inter', sans-serif; font-weight: 700; letter-spacing: 4px; margin: 0; font-size: 22px; text-transform: uppercase;">Porsche Engineering</h2>
+        <p style="color: #626971; font-size: 11px; letter-spacing: 1px; margin-top: 6px; text-transform: uppercase;">Groupe Motopropulseur Haute Performance</p>
+    </div>
+
+    <div id="engine-canvas-container" style="width: 100%; height: 100%; position: relative; z-index: 2;"></div>
+
+    <div id="engine-hotspots-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5;">
+    
+    <div class="hotspot-card hotspot-left" id="hotspot-culasse" style="position: absolute; display: none; pointer-events: auto;">
+        <div class="hotspot-pointer" style="width: 8px; height: 8px; background: #fff; border-radius: 50%; box-shadow: 0 0 0 6px rgba(255,255,255,0.15);"></div>
+        <svg class="hotspot-line" style="position: absolute; overflow: visible; pointer-events: none;"><line x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-dasharray="3 3"/></svg>
+        <div class="hotspot-text" style="background: rgba(235, 237, 240, 0.96); border-right: 4px solid #d5001c; padding: 16px; width: 260px; border-radius: 2px; color: #1c1f22; font-size: 12px; font-family: sans-serif; box-shadow: 0 15px 35px rgba(0,0,0,0.4); backdrop-filter: blur(4px); line-height: 1.5; text-align: right;">
+            <strong style="color: #1c1f22; display:block; margin-bottom:6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 13px;">01 / Distribution VarioCam</strong>
+            Contrôle millimétrique des arbres à cames d'admission et d'échappement. Adapte l'ouverture des soupapes en continu pour optimiser le couple.
+        </div>
+    </div>
+
+    <div class="hotspot-card hotspot-left" id="hotspot-bloc" style="position: absolute; display: none; pointer-events: auto;">
+        <div class="hotspot-pointer" style="width: 8px; height: 8px; background: #fff; border-radius: 50%; box-shadow: 0 0 0 6px rgba(255,255,255,0.15);"></div>
+        <svg class="hotspot-line" style="position: absolute; overflow: visible; pointer-events: none;"><line x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-dasharray="3 3"/></svg>
+        <div class="hotspot-text" style="background: rgba(235, 237, 240, 0.96); border-right: 4px solid #d5001c; padding: 16px; width: 260px; border-radius: 2px; color: #1c1f22; font-size: 12px; font-family: sans-serif; box-shadow: 0 15px 35px rgba(0,0,0,0.4); backdrop-filter: blur(4px); line-height: 1.5; text-align: right;">
+            <strong style="color: #1c1f22; display:block; margin-bottom:6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 13px;">03 / Bloc Cylindres Allégé</strong>
+            Alliage d'aluminium et de silicium à haute résistance. Parois de cylindres traitées anti-friction pour endurer de hautes contraintes.
+        </div>
+    </div>
+
+
+    <div class="hotspot-card hotspot-right" id="hotspot-injection" style="position: absolute; display: none; pointer-events: auto;">
+        <div class="hotspot-pointer" style="width: 8px; height: 8px; background: #fff; border-radius: 50%; box-shadow: 0 0 0 6px rgba(255,255,255,0.15);"></div>
+        <svg class="hotspot-line" style="position: absolute; overflow: visible; pointer-events: none;"><line x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-dasharray="3 3"/></svg>
+        <div class="hotspot-text" style="background: rgba(235, 237, 240, 0.96); border-left: 4px solid #d5001c; padding: 16px; width: 260px; border-radius: 2px; color: #1c1f22; font-size: 12px; font-family: sans-serif; box-shadow: 0 15px 35px rgba(0,0,0,0.4); backdrop-filter: blur(4px); line-height: 1.5;">
+            <strong style="color: #1c1f22; display:block; margin-bottom:6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 13px;">02 / Injection Directe DFI</strong>
+            Injecteurs piézo-électriques pulvérisant le carburant à 350 bars directement au centre de la chambre pour une combustion complète.
+        </div>
+    </div>
+
+    <div class="hotspot-card hotspot-right" id="hotspot-echappement" style="position: absolute; display: none; pointer-events: auto;">
+        <div class="hotspot-pointer" style="width: 8px; height: 8px; background: #fff; border-radius: 50%; box-shadow: 0 0 0 6px rgba(255,255,255,0.15);"></div>
+        <svg class="hotspot-line" style="position: absolute; overflow: visible; pointer-events: none;"><line x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-dasharray="3 3"/></svg>
+        <div class="hotspot-text" style="background: rgba(235, 237, 240, 0.96); border-left: 4px solid #d5001c; padding: 16px; width: 260px; border-radius: 2px; color: #1c1f22; font-size: 12px; font-family: sans-serif; box-shadow: 0 15px 35px rgba(0,0,0,0.4); backdrop-filter: blur(4px); line-height: 1.5;">
+            <strong style="color: #1c1f22; display:block; margin-bottom:6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 13px;">04 / Échappement Dynamique</strong>
+            Lignes hydroformées à contre-pression optimisée qui égalisent le flux des gaz, libérant la puissance et la signature sonore fine.
+        </div>
+    </div>
+
+</div>
+</section>
+
     <section id="modeles" class="section-modeles">
     <div class="section-title-container">
         <div class="line"></div>
@@ -427,36 +480,36 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
 </section>
 
     <section id="contact" class="section-contact">
-        <div class="contact-panel-container">
-            <div class="contact-form-side">
-                <span class="contact-mini-tag">Contact</span>
-                <h2>Une question ?</h2>
-                <p class="contact-desc-text">Notre équipe vous répond sous 24h.</p>
+    <div class="contact-panel-container">
+        <div class="contact-form-side">
+            <span class="contact-mini-tag">Contact</span>
+            <h2>Une question ?</h2>
+            <p class="contact-desc-text">Notre équipe d'ingénieurs vous répond sous 24h.</p>
 
-                <form action="#" method="POST" class="custom-contact-form">
-                    <div class="custom-input-box">
-                        <i class="fa-solid fa-user"></i>
-                        <input type="text" placeholder="Nom complet" required>
-                    </div>
-                    <div class="custom-input-box">
-                        <i class="fa-solid fa-envelope"></i>
-                        <input type="email" placeholder="Adresse e-mail" required>
-                    </div>
-                    <div class="custom-input-box">
-                        <i class="fa-solid fa-folder"></i>
-                        <input type="text" placeholder="Sujet" required>
-                    </div>
-                    <div class="custom-input-box">
-                        <i class="fa-solid fa-pen"></i>
-                        <textarea placeholder="Votre message" rows="4" required></textarea>
-                    </div>
-                    <button type="submit" class="btn-submit-form">
-                        Envoyer le message <i class="fa-solid fa-chevron-right"></i>
-                    </button>
-                </form>
-            </div>
+            <form action="#" method="POST" class="custom-contact-form">
+                <div class="custom-input-box">
+                    <i class="fa-solid fa-user"></i>
+                    <input type="text" placeholder="Nom complet" required>
+                </div>
+                <div class="custom-input-box">
+                    <i class="fa-solid fa-envelope"></i>
+                    <input type="email" placeholder="Adresse e-mail" required>
+                </div>
+                <div class="custom-input-box">
+                    <i class="fa-solid fa-folder"></i>
+                    <input type="text" placeholder="Sujet" required>
+                </div>
+                <div class="custom-input-box box-textarea">
+                    <i class="fa-solid fa-pen"></i>
+                    <textarea placeholder="Votre message" rows="4" required></textarea>
+                </div>
+                <button type="submit" class="btn-submit-form">
+                    Envoyer le message <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </form>
         </div>
-    </section>
+    </div>
+</section>
 
     <footer class="site-footer">
         <div class="footer-top-grid">

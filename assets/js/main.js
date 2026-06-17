@@ -213,6 +213,141 @@ function loadVehicleModel(index) {
     });
 }
 
+// --- CONFIGURATION DU MOTEUR INTERACTIF (HAUT DE PAGE) ---
+const engineContainer = document.getElementById('engine-canvas-container');
+let engineScene, engineCamera, engineRenderer, engineModel;
+
+// Coordonnées 3D fictives des pièces sur votre modèle de moteur (à ajuster selon votre fichier GLB)
+// Configuration des 4 points d'ancrage techniques 3D
+const hotspotsData = [
+    { id: 'hotspot-culasse', targetPos: new THREE.Vector3(0.0, 0.4, 0.2) },
+    { id: 'hotspot-injection', targetPos: new THREE.Vector3(-0.3, 0.1, -0.2) },
+    { id: 'hotspot-bloc', targetPos: new THREE.Vector3(0.1, -0.2, 0.3) },
+    { id: 'hotspot-echappement', targetPos: new THREE.Vector3(0.4, -0.4, -0.1) }
+];
+
+if (engineContainer) {
+    initEngineShowroom();
+}
+
+function initEngineShowroom() {
+    engineScene = new THREE.Scene();
+    
+    // Caméra & Renderer dédiés à la section moteur
+    engineCamera = new THREE.PerspectiveCamera(40, engineContainer.clientWidth / engineContainer.clientHeight, 0.1, 100);
+    engineCamera.position.set(0, 0.5, 3.5);
+
+    engineRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    engineRenderer.setSize(engineContainer.clientWidth, engineContainer.clientHeight);
+    engineRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    engineContainer.appendChild(engineRenderer.domElement);
+
+    // Lumières du moteur
+    engineScene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const topLight = new THREE.DirectionalLight(0xffffff, 2.5);
+    topLight.position.set(3, 6, 3);
+    engineScene.add(topLight);
+
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.load('assets/models/porsche/engine.glb', (gltf) => {
+        engineModel = gltf.scene;
+        
+        const pivotGroup = new THREE.Group();
+        engineScene.add(pivotGroup);
+        pivotGroup.add(engineModel);
+
+        // --- 1. RÉDUCTION RADICALE DE LA TAILLE ---
+        // On passe de 1.0 à 0.05 pour que le moteur rentre entièrement dans l'écran
+        engineModel.scale.setScalar(0.1); 
+
+        // --- 2. RECENTRAGE MANUEL AJUSTÉ ---
+        engineModel.position.x = 0.0;  
+        engineModel.position.y = -0.2; // Descend légèrement le moteur pour l'aligner au centre
+        engineModel.position.z = 0.0;  
+
+        engineModel = pivotGroup;
+
+        // --- 3. ON RECULE LA CAMÉRA POUR EN VOIR PLUS ---
+        engineCamera.position.set(0, 0.2, 4.5); 
+        engineCamera.lookAt(0, 0, 0);
+
+        animateEngine();
+    }, undefined, (err) => console.error("Erreur chargement moteur 3D :", err));
+}
+
+function animateEngine() {
+    requestAnimationFrame(animateEngine);
+
+    if (engineModel) {
+        // Vitesse de rotation lente et fluide
+        engineModel.rotation.y += 0.003; 
+
+        hotspotsData.forEach(hotspot => {
+            const el = document.getElementById(hotspot.id);
+            if (!el) return;
+
+            // Projection de l'espace 3D à l'écran 2D
+            let worldPos = hotspot.targetPos.clone();
+            worldPos.applyQuaternion(engineModel.quaternion);
+            worldPos.add(engineModel.position);
+            worldPos.project(engineCamera);
+
+            const x = (worldPos.x * .5 + .5) * engineContainer.clientWidth;
+            const y = (worldPos.y * -.5 + .5) * engineContainer.clientHeight;
+
+            el.style.display = 'block';
+            el.style.transform = `translate(${x}px, ${y}px)`;
+
+            const line = el.querySelector('.hotspot-line');
+            const textBlock = el.querySelector('.hotspot-text');
+            
+            if (line && textBlock) {
+                const isLeft = el.classList.contains('hotspot-left');
+                const lineLength = 400; // Longueur augmentée des traits de repère
+                
+                // Redimensionnement de la zone SVG pour englober le trait
+                line.setAttribute('width', (lineLength + 20).toString());
+                line.setAttribute('height', '150');
+                
+                const lineInner = line.querySelector('line');
+
+                if (isLeft) {
+                    // --- COMPORTEMENT À GAUCHE ---
+                    // Le texte se décale vers la gauche (-lineLength moins sa propre largeur)
+                    textBlock.style.transform = `translate(${-lineLength - 260}px, -60px)`;
+                    
+                    lineInner.setAttribute('x1', '4');   
+                    lineInner.setAttribute('y1', '4');
+                    lineInner.setAttribute('x2', `${-lineLength}`); 
+                    lineInner.setAttribute('y2', '-40');
+                } else {
+                    // --- COMPORTEMENT À DROITE ---
+                    // Le texte se décale simplement vers la droite
+                    textBlock.style.transform = `translate(${lineLength}px, -60px)`;
+                    
+                    lineInner.setAttribute('x1', '4');   
+                    lineInner.setAttribute('y1', '4');
+                    lineInner.setAttribute('x2', `${lineLength}`); 
+                    lineInner.setAttribute('y2', '-40');
+                }
+            }
+        });
+    }
+
+    if (engineRenderer && engineScene && engineCamera) {
+        engineRenderer.render(engineScene, engineCamera);
+    }
+}
+
+// Redimensionnement à l'écoute de la fenêtre
+window.addEventListener('resize', () => {
+    if (engineContainer && engineRenderer) {
+        engineRenderer.setSize(engineContainer.clientWidth, engineContainer.clientHeight);
+        engineCamera.aspect = engineContainer.clientWidth / engineContainer.clientHeight;
+        engineCamera.updateProjectionMatrix();
+    }
+});
+
 async function changeVehicle(newIndex) {
     if (carData.length === 0) return;
     stopCurrentVehicleSound();

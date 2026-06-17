@@ -938,55 +938,67 @@ body {
 
 
 /* =========================================================================
-   STYLE DE LA SECTION CONTACT
+   STYLE DE LA SECTION CONTACT - ÉDITION PORSCHE INTERACTIVE
    ========================================================================= */
 .section-contact {
-    /* background: url('../images/bg.jpg') center center / cover no-repeat; */
     background: transparent;
     position: relative;
-    z-index: 2;
-    padding: 60px 40px;
+    z-index: 10;
+    padding: 80px 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .contact-panel-container {
-    max-width: 40%;
+    width: 100%;
+    max-width: 500px; /* Taille optimisée pour un formulaire centré et élégant */
     margin: 0 auto;
-    background: linear-gradient(135deg, #b00f14 0%, #ff2828 100%);
-    border-radius: 20px;
+    /* Effet Glassmorphism premium sur fond sombre */
+    background: rgba(30, 33, 36, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    border-radius: 4px; /* Bordures angulaires typiques du style industriel Porsche */
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.4);
     overflow: hidden;
-    display: flex;
-    box-shadow: 0 15px 40px rgba(255, 40, 40, 0.15);
 }
 
 .contact-form-side {
-    flex: 1;
-    padding: 50px;
+    padding: 45px;
+    color: #fff;
 }
 
 .contact-mini-tag {
+    display: inline-block;
     text-transform: uppercase;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 1px;
-    opacity: 0.8;
+    letter-spacing: 2px;
+    color: #d5001c; /* Porsche Red */
+    margin-bottom: 8px;
 }
 
 .contact-form-side h2 {
-    font-size: 2.5rem;
-    font-weight: 800;
+    font-family: 'Inter', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 700;
     text-transform: uppercase;
-    margin: 5px 0;
+    letter-spacing: 1px;
+    margin: 0 0 10px 0;
 }
 
 .contact-desc-text {
-    opacity: 0.9;
-    margin-bottom: 30px;
+    color: #88909a;
+    font-size: 0.95rem;
+    margin-bottom: 35px;
+    line-height: 1.5;
 }
 
 .custom-contact-form {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 20px; /* Plus d'espace pour respirer */
 }
 
 .custom-input-box {
@@ -994,70 +1006,100 @@ body {
     width: 100%;
 }
 
+/* Alignement des icônes pour les inputs classiques */
 .custom-input-box i {
     position: absolute;
     left: 18px;
     top: 50%;
     transform: translateY(-50%);
-    color: rgba(0, 0, 0, 0.4);
-    font-size: 1.05rem;
+    color: #626971;
+    font-size: 0.95rem;
+    transition: color 0.3s ease;
 }
 
-.custom-input-box textarea ~ i {
-    top: 25px;
+/* Alignement spécifique de l'icône pour la zone de texte */
+.custom-input-box.box-textarea i {
+    top: 20px;
+    transform: none;
 }
 
 .custom-input-box input,
 .custom-input-box textarea {
     width: 100%;
-    padding: 14px 20px 14px 45px;
-    border: none;
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 10px;
-    color: #000;
-    font-size: 1rem;
+    padding: 16px 20px 16px 48px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(235, 237, 240, 0.08); /* Fond sombre translucide */
+    border-radius: 2px;
+    color: #fff;
+    font-size: 0.95rem;
     font-family: inherit;
     outline: none;
+    transition: all 0.3s ease;
+}
+
+.custom-input-box textarea {
+    resize: none;
+}
+
+/* Effets Focus : Changement de couleur au clic */
+.custom-input-box input:focus,
+.custom-input-box textarea:focus {
+    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(235, 237, 240, 0.12);
+}
+
+.custom-input-box input:focus ~ i,
+.custom-input-box textarea:focus ~ i {
+    color: #fff; /* L'icône s'illumine au focus */
 }
 
 .custom-input-box input::placeholder,
 .custom-input-box textarea::placeholder {
-    color: rgba(0, 0, 0, 0.4);
+    color: #626971;
 }
 
+/* Bouton d'action Porsche Red */
 .btn-submit-form {
-    background: #000;
+    background: #d5001c;
     color: #fff;
     border: none;
-    padding: 14px;
-    border-radius: 25px;
+    padding: 16px;
+    border-radius: 2px;
+    font-size: 0.9rem;
     font-weight: 700;
     text-transform: uppercase;
+    letter-spacing: 1px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    transition: background 0.3s ease;
+    gap: 12px;
+    transition: background 0.2s ease, transform 0.2s ease;
     margin-top: 10px;
 }
 
+.btn-submit-form i {
+    font-size: 0.8rem;
+    transition: transform 0.2s ease;
+}
+
 .btn-submit-form:hover {
-    background: #1a1a1a;
+    background: #b50017;
 }
 
-.contact-visual-side {
-    flex: 1.1;
-    background-size: cover;
-    background-position: center;
-    position: relative;
+.btn-submit-form:hover i {
+    transform: translateX(4px); /* Petite animation sur la flèche */
 }
 
-@media (max-width: 900px) {
-    .contact-panel-container { flex-direction: column; }
-    .contact-visual-side { height: 250px; }
+.btn-submit-form:active {
+    transform: scale(0.98);
 }
 
+@media (max-width: 600px) {
+    .section-contact { padding: 40px 20px; }
+    .contact-form-side { padding: 30px 20px; }
+    .contact-form-side h2 { font-size: 1.8rem; }
+}
 
 /* =========================================================================
    STYLE DU FOOTER GLOBAL

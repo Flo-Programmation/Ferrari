@@ -546,14 +546,19 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
             <p class="contact-desc-text">Notre équipe d'ingénieurs vous répond sous 24h.</p>
 
             <form action="#" method="POST" class="custom-contact-form" id="contact-form">
+                
                 <div class="custom-input-box">
                     <i class="fa-solid fa-user"></i>
-                    <input type="text" name="nom" placeholder="Nom complet" required>
+                    <input type="text" name="nom" placeholder="Nom complet" 
+                           value="<?php echo isset($_SESSION['user']) ? htmlspecialchars($_SESSION['user']['prenom'] . ' ' . $_SESSION['user']['nom']) : ''; ?>" 
+                           <?php echo isset($_SESSION['user']) ? 'readonly style="opacity: 0.7; cursor: not-allowed;"' : ''; ?> required>
                 </div>
                 
                 <div class="custom-input-box">
                     <i class="fa-solid fa-envelope"></i>
-                    <input type="email" name="email" placeholder="Adresse e-mail" required>
+                    <input type="email" name="email" placeholder="Adresse e-mail" 
+                           value="<?php echo isset($_SESSION['user']) ? htmlspecialchars($_SESSION['user']['email']) : ''; ?>" 
+                           <?php echo isset($_SESSION['user']) ? 'readonly style="opacity: 0.7; cursor: not-allowed;"' : ''; ?> required>
                 </div>
 
                 <div class="custom-input-box">

@@ -2,20 +2,15 @@
  * Scuderia Ferrari - Script d'Administration de la Modération
  */
 
-// Nom complet des véhicules calqué sur la structure globale de l'application
 const carNames = {
     0: "Monza SP3 Evo",
     1: "SF100 Vision",
     2: "F42 Aperta"
 };
 
-// Variable pour conserver les données brutes des avis reçues du serveur
 let localCommentsCached = [];
 const csrfToken = document.getElementById('admin-csrf')?.value || null;
 
-/**
- * Fonction utilitaire d'échappement HTML contre les failles XSS
- */
 function escapeHtml(text) {
     if (!text) return '';
     return text.toString()
@@ -41,7 +36,7 @@ function loadAdminDashboard() {
         .then(data => {
             if (data.success && Array.isArray(data.comments)) {
                 localCommentsCached = data.comments;
-                renderDashboard('all'); // Rendu initial : aucun filtre appliqué
+                renderDashboard('all');
             } else {
                 container.innerHTML = `<p style="text-align:center; color:#ff2828;">${escapeHtml(data.message || 'Erreur lors de la récupération des données.')}</p>`;
             }
@@ -53,21 +48,76 @@ function loadAdminDashboard() {
 }
 
 /**
- * Génère le rendu graphique des statistiques, des groupes et des avis
- * @param {string|number} starFilterCriterion - 'all' ou une note de 1 à 5
+ * FONCTION NOUVELLE : Charge l'ensemble des messages de contact reçus
  */
+function loadContactMessages() {
+    const container = document.getElementById('contact-messages-container');
+    if (!container) return;
+
+    // Ajout explicite du jeton s'il est requis par ton fichier admin_process.php
+    fetch('admin_process.php?action=getAllMessages')
+        .then(response => {
+            if (!response.ok) throw new Error('Erreur serveur');
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && Array.isArray(data.messages)) {
+                if (data.messages.length === 0) {
+                    container.innerHTML = '<p style="opacity:0.5; font-style:italic; padding:15px 0;">Aucun message reçu pour le moment.</p>';
+                    return;
+                }
+
+                let html = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:15%;">Nom</th>
+                                <th style="width:20%;">Email</th>
+                                <th style="width:15%;">Téléphone</th>
+                                <th style="width:20%;">Sujet</th>
+                                <th style="width:30%;">Message</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                data.messages.forEach(msg => {
+                    const phoneDisplay = msg.telephone ? escapeHtml(msg.telephone) : '<span style="opacity:0.3; font-style:italic;">Non renseigné</span>';
+                    const msgDisplay = msg.message ? escapeHtml(msg.message).replace(/\n/g, '<br>') : '';
+                    
+                    html += `
+                        <tr>
+                            <td><strong style="color:#fff;">${escapeHtml(msg.nom)}</strong></td>
+                            <td><a href="mailto:${escapeHtml(msg.email)}" style="color:#aaa; text-decoration:underline;">${escapeHtml(msg.email)}</a></td>
+                            <td>${phoneDisplay}</td>
+                            <td style="color: #ffaa00; font-weight: bold;">${escapeHtml(msg.sujet)}</td>
+                            <td style="color: #ccc; line-height: 1.4;">${msgDisplay}</td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = `<p style="color:#ff2828; padding:15px 0;">${escapeHtml(data.message || 'Erreur lors de la récupération des messages.')}</p>`;
+            }
+        })
+        .catch(err => {
+            console.error('Erreur Messages Contact:', err);
+            container.innerHTML = '<p style="color:#ff2828; padding:15px 0;">Impossible de joindre l\'API de messagerie.</p>';
+        });
+}
+
 function renderDashboard(starFilterCriterion) {
     const container = document.getElementById('dashboard-container');
     if (!container) return;
 
-    // 1. Filtrage initial des commentaires selon le choix de l'admin
     let filteredComments = localCommentsCached;
     if (starFilterCriterion !== 'all') {
         const targetStars = parseInt(starFilterCriterion);
         filteredComments = localCommentsCached.filter(c => parseInt(c.rating) === targetStars);
     }
 
-    // 2. Calcul des métriques statistiques globales
     const totalAvisCount = localCommentsCached.length;
     const totalMasquesCount = localCommentsCached.filter(c => parseInt(c.is_deleted) === 1).length;
     
@@ -75,7 +125,6 @@ function renderDashboard(starFilterCriterion) {
     localCommentsCached.forEach(c => sumRatings += parseInt(c.rating));
     const averageRating = totalAvisCount > 0 ? (sumRatings / totalAvisCount).toFixed(1) : '0.0';
 
-    // Génération HTML de la zone des statistiques
     let htmlContent = `
         <div class="dashboard-meta">
             <div class="stat-card">
@@ -99,7 +148,6 @@ function renderDashboard(starFilterCriterion) {
         return;
     }
 
-    // 3. Regroupement intelligent des avis par index de véhicule
     const groupedByVehicle = {};
     filteredComments.forEach(comment => {
         const vIndex = comment.vehicle_index;
@@ -109,7 +157,6 @@ function renderDashboard(starFilterCriterion) {
         groupedByVehicle[vIndex].push(comment);
     });
 
-    // 4. Construction de l'arbre HTML par modèle de voiture
     Object.keys(groupedByVehicle).forEach(vIndex => {
         const commentsInGroup = groupedByVehicle[vIndex];
         const vehicleTitle = carNames[vIndex] || `Véhicule Prototype (#${vIndex})`;
@@ -154,19 +201,21 @@ function renderDashboard(starFilterCriterion) {
     });
 
     container.innerHTML = htmlContent;
-
-    // 5. Attachement dynamique des écouteurs d'événements sur les actions de modération
     bindModerationButtons();
 }
 
-/**
- * Attache les clics d'actions aux boutons Masquer et Supprimer
- */
 function bindModerationButtons() {
     const container = document.getElementById('dashboard-container');
     if (!container) return;
 
-    // Gestion de l'action : Masquer un avis (Soft delete)
+    container.querySelectorAll('.btn-flag').forEach(btn => {
+        btn.replaceWith(btn.cloneNode(true)); // Nettoie les écouteurs précédents
+    });
+
+    container.querySelectorAll('.btn-delete').forEach(btn => {
+        btn.replaceWith(btn.cloneNode(true));
+    });
+
     container.querySelectorAll('.btn-flag').forEach(btn => {
         btn.addEventListener('click', function() {
             const commentId = this.dataset.id;
@@ -174,22 +223,16 @@ function bindModerationButtons() {
         });
     });
 
-    // Gestion de l'action : Supprimer un avis (Hard delete de la base)
     container.querySelectorAll('.btn-delete').forEach(btn => {
         btn.addEventListener('click', function() {
             const commentId = this.dataset.id;
-            if (confirm('ATTENTION : Voulez-vous définitivement supprimer cet avis de la base de données ? Cette action est irréversible.')) {
+            if (confirm('ATTENTION : Voulez-vous définitivement supprimer cet avis ? Cette action est irréversible.')) {
                 executeModerationAction('deleteComment', commentId);
             }
         });
     });
 }
 
-/**
- * Envoie la requête POST sécurisée par CSRF au contrôleur PHP
- * @param {string} actionName - 'flagComment' ou 'deleteComment'
- * @param {number|string} id - Identifiant de l'avis cible
- */
 function executeModerationAction(actionName, id) {
     if (!csrfToken) {
         alert('Jeton de sécurité CSRF manquant. Veuillez rafraîchir la page.');
@@ -212,7 +255,6 @@ function executeModerationAction(actionName, id) {
     .then(data => {
         if (data.success) {
             alert(data.message);
-            // Rechargement immédiat des données pour garder le tableau de bord synchronisé
             loadAdminDashboard();
         } else {
             alert(data.message || 'Une erreur est survenue lors de l\'action.');
@@ -220,18 +262,14 @@ function executeModerationAction(actionName, id) {
     })
     .catch(err => {
         console.error('Erreur action admin:', err);
-        alert('Impossible de communiquer avec le serveur pour valider la modération.');
+        alert('Impossible de communiquer avec le serveur.');
     });
 }
 
-// -------------------------------------------------------------------------
-// INITIALISATION ET GESTION DES FILTRES DU DOM
-// -------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
-    // Lancement du chargement initial
     loadAdminDashboard();
+    loadContactMessages(); // Lancement du chargement des messages de contact
 
-    // Écouteur sur le menu déroulant de filtrage par note
     const starFilterSelector = document.getElementById('star-filter');
     if (starFilterSelector) {
         starFilterSelector.addEventListener('change', function() {

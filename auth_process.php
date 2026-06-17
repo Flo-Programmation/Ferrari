@@ -200,15 +200,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // --- FORMULAIRE DE CONTACT (AJOUTÉ & SÉCURISÉ) ---
+    // --- FORMULAIRE DE CONTACT (AVEC ACCUSÉ DE RÉCEPTION) ---
     elseif ($action === 'contact') {
         $nom = trim($_POST['nom'] ?? '');
         $email = trim($_POST['email'] ?? '');
-        $telephone = trim($_POST['telephone'] ?? ''); // Récupération du nouveau champ
+        $telephone = trim($_POST['telephone'] ?? '');
         $sujet = trim($_POST['sujet'] ?? '');
         $message = trim($_POST['message'] ?? '');
 
-        // Validation des champs obligatoires
         if (empty($nom) || empty($email) || empty($sujet) || empty($message)) {
             echo json_encode(['success' => false, 'message' => 'Veuillez remplir tous les champs obligatoires.']);
             exit;
@@ -220,15 +219,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         try {
-            // Insertion dans la table contact_requests (avec le champ telephone)
+            // 1. Insertion en Base de Données
             $stmt = $bdd->prepare("
                 INSERT INTO contact_requests (nom, email, telephone, sujet, message) 
                 VALUES (?, ?, ?, ?, ?)
             ");
             $stmt->execute([$nom, $email, !empty($telephone) ? $telephone : null, $sujet, $message]);
 
-            echo json_encode(['success' => true, 'message' => 'Votre message a été transmis avec succès ! Nous vous répondrons sous 24h.'], JSON_UNESCAPED_UNICODE);
+            // 2. ENVOI DU MAIL AUTOMATIQUE AU CLIENT
+            $to = $email;
+            $email_subject = "Accusé de réception : " . $sujet;
+            
+            // Entêtes pour envoyer un mail propre au format HTML
+            $headers = "MIME-Version: 1.0" . "\r\n";
+            $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
+            $headers .= "From: Scuderia Ferrari Exposition <no-reply@votre-domaine.com>" . "\r\n";
+
+            // Corps du mail au design élégant (Dark mode type Ferrari)
+            $email_body = "
+            <html>
+            <head>
+                <style>
+                    body { font-family: Arial, sans-serif; background-color: #0b0b0b; color: #ffffff; padding: 20px; }
+                    .container { max-width: 600px; background-color: #141414; border: 1px solid #222; padding: 30px; border-radius: 8px; margin: 0 auto; }
+                    .header { border-bottom: 2px solid #ff2828; padding-bottom: 15px; margin-bottom: 20px; }
+                    h2 { color: #ff2828; margin: 0; }
+                    .content { font-size: 14px; line-height: 1.6; color: #ccccce; }
+                    .recap { background-color: #1c1c1c; padding: 15px; border-radius: 5px; margin-top: 20px; border-left: 3px solid #ffaa00; }
+                    .footer { font-size: 11px; color: #555; text-align: center; margin-top: 30px; }
+                </style>
+            </head>
+            <body>
+                <div class='container'>
+                    <div class='header'>
+                        <h2>Scuderia Ferrari - Showroom</h2>
+                    </div>
+                    <div class='content'>
+                        <p>Bonjour <strong>" . htmlspecialchars($nom) . "</strong>,</p>
+                        <p>Nous vous confirmons la bonne réception de votre message. Notre équipe d'ingénieurs et de conseillers va l'étudier avec la plus grande attention.</p>
+                        <p>Vous recevrez une réponse personnalisée sous un délai de 24 heures.</p>
+                        
+                        <div class='recap'>
+                            <strong>Rappel de votre demande :</strong><br>
+                            <span style='color:#ffaa00;'>Sujet :</span> " . htmlspecialchars($sujet) . "<br>
+                            <span style='color:#ffaa00;'>Message :</span><br>
+                            <em>\"" . nl2br(htmlspecialchars($message)) . "\"</em>
+                        </div>
+                    </div>
+                    <div class='footer'>
+                        Ceci est un message automatique, merci de ne pas y répondre directement.<br>
+                        © " . date('Y') . " Ferrari Vitrine Showcase. Tous droits réservés.
+                    </div>
+                </div>
+            </body>
+            </html>";
+
+            // Envoi effectif du mail (ne bloque pas le script si l'envoi échoue)
+            @mail($to, $email_subject, $email_body, $headers);
+
+            // 3. Réponse AJAX retournée au JavaScript
+            echo json_encode(['success' => true, 'message' => 'Votre message a été transmis ! Un e-mail de confirmation vous a été envoyé.'], JSON_UNESCAPED_UNICODE);
             exit;
+
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Erreur technique lors de l\'envoi du message : ' . $e->getMessage()]);
             exit;

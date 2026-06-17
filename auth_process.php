@@ -105,17 +105,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        // --- CORRECTION STRUCTURELLE : RESTRICTION DES DOMAINES D'EMAIL ---
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             echo json_encode(['success' => false, 'message' => 'Le format de l\'adresse email est invalide.']);
             exit;
         }
 
-        // On extrait le domaine (ex: gmail.com)
         $emailParts = explode('@', $email);
         $domain = strtolower(end($emailParts));
-        
-        // Liste des domaines strictement autorisés
         $allowedDomains = ['gmail.com', 'outlook.fr', 'outlook.com'];
 
         if (!in_array($domain, $allowedDomains)) {
@@ -140,7 +136,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtInsert = $bdd->prepare("INSERT INTO users (prenom, nom, email, password, role) VALUES (:prenom, :nom, :email, :password, 'member')");
             $stmtInsert->execute(['prenom' => $prenom, 'nom' => $nom, 'email' => $email, 'password' => $hashedPassword]);
 
-            // Connexion AUTOMATIQUE : On peuple immédiatement la session
             $_SESSION['user'] = [
                 'id' => $bdd->lastInsertId(), 
                 'prenom' => $prenom, 
@@ -151,7 +146,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
-            // On envoie 'success' => true pour que le JavaScript sache qu'il doit rediriger
             echo json_encode([
                 'success' => true, 
                 'message' => 'Compte créé avec succès !', 
@@ -202,6 +196,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => 'Erreur lors de la connexion.']);
+            exit;
+        }
+    }
+
+    // --- FORMULAIRE DE CONTACT (AJOUTÉ & SÉCURISÉ) ---
+    elseif ($action === 'contact') {
+        $nom = trim($_POST['nom'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $telephone = trim($_POST['telephone'] ?? ''); // Récupération du nouveau champ
+        $sujet = trim($_POST['sujet'] ?? '');
+        $message = trim($_POST['message'] ?? '');
+
+        // Validation des champs obligatoires
+        if (empty($nom) || empty($email) || empty($sujet) || empty($message)) {
+            echo json_encode(['success' => false, 'message' => 'Veuillez remplir tous les champs obligatoires.']);
+            exit;
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['success' => false, 'message' => 'L\'adresse email saisie est invalide.']);
+            exit;
+        }
+
+        try {
+            // Insertion dans la table contact_requests (avec le champ telephone)
+            $stmt = $bdd->prepare("
+                INSERT INTO contact_requests (nom, email, telephone, sujet, message) 
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([$nom, $email, !empty($telephone) ? $telephone : null, $sujet, $message]);
+
+            echo json_encode(['success' => true, 'message' => 'Votre message a été transmis avec succès ! Nous vous répondrons sous 24h.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur technique lors de l\'envoi du message : ' . $e->getMessage()]);
             exit;
         }
     }

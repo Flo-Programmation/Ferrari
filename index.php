@@ -545,23 +545,32 @@ $user_avatar = "https://api.dicebear.com/7.x/lorelei/svg?seed=" . urlencode($use
             <h2>Une question ?</h2>
             <p class="contact-desc-text">Notre équipe d'ingénieurs vous répond sous 24h.</p>
 
-            <form action="#" method="POST" class="custom-contact-form">
+            <form action="#" method="POST" class="custom-contact-form" id="contact-form">
                 <div class="custom-input-box">
                     <i class="fa-solid fa-user"></i>
-                    <input type="text" placeholder="Nom complet" required>
+                    <input type="text" name="nom" placeholder="Nom complet" required>
                 </div>
+                
                 <div class="custom-input-box">
                     <i class="fa-solid fa-envelope"></i>
-                    <input type="email" placeholder="Adresse e-mail" required>
+                    <input type="email" name="email" placeholder="Adresse e-mail" required>
                 </div>
+
+                <div class="custom-input-box">
+                    <i class="fa-solid fa-phone"></i>
+                    <input type="tel" name="telephone" placeholder="Numéro de téléphone (ex: 0612345678)">
+                </div>
+                
                 <div class="custom-input-box">
                     <i class="fa-solid fa-folder"></i>
-                    <input type="text" placeholder="Sujet" required>
+                    <input type="text" name="sujet" placeholder="Sujet" required>
                 </div>
+                
                 <div class="custom-input-box box-textarea">
                     <i class="fa-solid fa-pen"></i>
-                    <textarea placeholder="Votre message" rows="4" required></textarea>
+                    <textarea name="message" placeholder="Votre message" rows="4" required></textarea>
                 </div>
+                
                 <button type="submit" class="btn-submit-form">
                     Envoyer le message <i class="fa-solid fa-chevron-right"></i>
                 </button>
